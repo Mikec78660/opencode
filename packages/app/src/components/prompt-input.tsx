@@ -37,6 +37,7 @@ import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
 import type { IconName } from "@opencode-ai/ui/icons/provider"
 import { Tooltip, TooltipKeybind } from "@opencode-ai/ui/tooltip"
 import { IconButton } from "@opencode-ai/ui/icon-button"
+import { Spinner } from "@opencode-ai/ui/spinner"
 import { Select } from "@opencode-ai/ui/select"
 import { getDirectory, getFilename } from "@opencode-ai/util/path"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
@@ -1782,7 +1783,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             </div>
           </Show>
         </div>
-<<<<<<< HEAD
         <div class="relative p-3 flex items-center justify-between">
           <div class="flex items-center justify-start gap-0.5">
             <Switch>
@@ -1887,11 +1887,22 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             <TooltipKeybind placement="top" title={voiceTitle()} keybind={command.keybind("prompt.voice")}>
               <IconButton
                 type="button"
-                icon={transcribing() || recording() ? "stop" : "mic"}
                 variant="ghost"
                 class="h-6 w-6"
                 onClick={toggleVoice}
-              />
+              >
+                <Switch>
+                  <Match when={transcribing()}>
+                    <Spinner class="size-4 text-icon-base" />
+                  </Match>
+                  <Match when={recording()}>
+                    <Icon name="stop" size="small" />
+                  </Match>
+                  <Match when={true}>
+                    <Icon name="mic" size="small" />
+                  </Match>
+                </Switch>
+              </IconButton>
             </TooltipKeybind>
             <Tooltip
               placement="top"
