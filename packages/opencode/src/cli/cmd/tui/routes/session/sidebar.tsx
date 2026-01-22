@@ -93,11 +93,20 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
     for (const agent of allAgents()) {
       stats[agent.name] = { taskCount: 0, tokens: 0 }
     }
-    // Count active tasks per agent (child sessions with parentID = current session)
+    // Count ACTIVE (incomplete) tasks per agent - child sessions with parentID = current session
+    // A session is active if the last message is NOT completed
     for (const s of sync.data.session) {
       if (s.parentID !== props.sessionID) continue
-      // Find the agent for this session by looking at assistant messages
+      // Check if session is still active (last message not completed)
       const sessionMessages = sync.data.message[s.id] ?? []
+      const lastMessage = sessionMessages.at(-1)
+      const isComplete =
+        lastMessage?.time &&
+        "completed" in lastMessage.time &&
+        (lastMessage.time as { completed?: number }).completed !== undefined
+      if (isComplete) continue // Don't count completed sessions
+
+      // Find the agent for this session
       const lastAssistant = sessionMessages.findLast((m) => m.role === "assistant" && m.tokens.output > 0) as
         | AssistantMessage
         | undefined
@@ -108,7 +117,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
         stats[lastAssistant.agent].taskCount++
       }
     }
-    // Aggregate tokens per agent from ALL messages in current session (including subagents)
+    // Aggregate tokens per agent from current session messages
     for (const msg of messages()) {
       if (msg.role !== "assistant" || !msg.agent) continue
       if (!stats[msg.agent]) {
@@ -121,6 +130,24 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
         msg.tokens.cache.read +
         msg.tokens.cache.write
       stats[msg.agent].tokens += msgTokens
+    }
+    // ALSO aggregate tokens from ALL child session messages (for subagent token tracking)
+    for (const s of sync.data.session) {
+      if (s.parentID !== props.sessionID) continue
+      const sessionMessages = sync.data.message[s.id] ?? []
+      for (const msg of sessionMessages) {
+        if (msg.role !== "assistant" || !msg.agent) continue
+        if (!stats[msg.agent]) {
+          stats[msg.agent] = { taskCount: 0, tokens: 0 }
+        }
+        const msgTokens =
+          msg.tokens.input +
+          msg.tokens.output +
+          (msg.tokens.reasoning ?? 0) +
+          msg.tokens.cache.read +
+          msg.tokens.cache.write
+        stats[msg.agent].tokens += msgTokens
+      }
     }
     return stats
   })
@@ -182,10 +209,13 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                     {(agent) => {
                       const stats = createMemo(() => agentStats()[agent.name] ?? { taskCount: 0, tokens: 0 })
                       const status = createMemo(() => getAgentStatus(stats().taskCount, blinkOn()))
+                      const isWorking = () => stats().taskCount > 0
+                      // Toggle opacity for blinking effect when working
+                      const opacity = createMemo(() => (isWorking() && !blinkOn() ? 0.3 : 1))
                       return (
                         <box flexDirection="row" gap={1} alignItems="center">
-                          <text style={{ fg: status().color }}>{status().indicator}</text>
-                          <text style={{ fg: status().color }}>{agent.name}</text>
+                          <text style={{ fg: status().color, opacity: opacity() }}>{status().indicator}</text>
+                          <text style={{ fg: status().color, opacity: opacity() }}>{agent.name}</text>
                           <Show when={stats().tokens > 0}>
                             <text fg={theme.textMuted}>{stats().tokens.toLocaleString()}t</text>
                           </Show>
