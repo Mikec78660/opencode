@@ -1,5 +1,5 @@
 import { useSync } from "@tui/context/sync"
-import { createMemo, For, Show, Switch, Match } from "solid-js"
+import { createMemo, For, Match, Show, Switch } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "../../context/theme"
 import { Locale } from "@/util/locale"
@@ -11,16 +11,19 @@ import { useKeybind } from "../../context/keybind"
 import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
+import { useLocal } from "../../context/local"
 
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const sync = useSync()
   const { theme } = useTheme()
+  const local = useLocal()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
   const diff = createMemo(() => sync.data.session_diff[props.sessionID] ?? [])
   const todo = createMemo(() => sync.data.todo[props.sessionID] ?? [])
   const messages = createMemo(() => sync.data.message[props.sessionID] ?? [])
 
   const [expanded, setExpanded] = createStore({
+    agents: true,
     mcp: true,
     diff: true,
     todo: true,
@@ -68,6 +71,48 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   )
   const gettingStartedDismissed = createMemo(() => kv.get("dismissed_getting_started", false))
 
+  // Agent task count and token tracking
+  const agentStats = createMemo(() => {
+    const stats: Record<string, { taskCount: number; tokens: number }> = {}
+    // Initialize with all agents
+    for (const agent of local.agent.list()) {
+      stats[agent.name] = { taskCount: 0, tokens: 0 }
+    }
+    // Count active tasks per agent (child sessions with parentID = current session)
+    for (const s of sync.data.session) {
+      if (s.parentID !== props.sessionID) continue
+      // Find the agent for this session by looking at assistant messages
+      const sessionMessages = sync.data.message[s.id] ?? []
+      const lastAssistant = sessionMessages.findLast((m) => m.role === "assistant" && m.tokens.output > 0) as
+        | AssistantMessage
+        | undefined
+      if (lastAssistant?.agent) {
+        if (!stats[lastAssistant.agent]) {
+          stats[lastAssistant.agent] = { taskCount: 0, tokens: 0 }
+        }
+        stats[lastAssistant.agent].taskCount++
+      }
+    }
+    // Aggregate tokens per agent from all messages in current session
+    for (const msg of messages()) {
+      if (msg.role !== "assistant" || !msg.agent) continue
+      if (!stats[msg.agent]) {
+        stats[msg.agent] = { taskCount: 0, tokens: 0 }
+      }
+      const msgTokens = msg.tokens.input + msg.tokens.output + (msg.tokens.reasoning ?? 0)
+      stats[msg.agent].tokens += msgTokens
+    }
+    return stats
+  })
+
+  // Get agent status color and blink state based on task count
+  const getAgentStatus = (taskCount: number) => {
+    if (taskCount === 0) return { color: theme.text, blink: false }
+    if (taskCount === 1) return { color: theme.success, blink: true }
+    if (taskCount === 2) return { color: theme.warning, blink: true }
+    return { color: theme.error, blink: true }
+  }
+
   return (
     <Show when={session()}>
       <box
@@ -98,6 +143,39 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
               <text fg={theme.textMuted}>{context()?.percentage ?? 0}% used</text>
               <text fg={theme.textMuted}>{cost()} spent</text>
             </box>
+            <Show when={local.agent.list().length > 0}>
+              <box>
+                <box
+                  flexDirection="row"
+                  gap={1}
+                  onMouseDown={() => local.agent.list().length > 2 && setExpanded("agents", !expanded.agents)}
+                >
+                  <Show when={local.agent.list().length > 2}>
+                    <text fg={theme.text}>{expanded.agents ? "▼" : "▶"}</text>
+                  </Show>
+                  <text fg={theme.text}>
+                    <b>Agents</b>
+                  </text>
+                </box>
+                <Show when={local.agent.list().length <= 2 || expanded.agents}>
+                  <For each={local.agent.list()}>
+                    {(agent) => {
+                      const stats = createMemo(() => agentStats()[agent.name] ?? { taskCount: 0, tokens: 0 })
+                      const status = createMemo(() => getAgentStatus(stats().taskCount))
+                      return (
+                        <box flexDirection="row" gap={1} alignItems="center">
+                          <text style={{ fg: status().color }}>●</text>
+                          <text style={{ fg: status().color }}>{agent.name}</text>
+                          <Show when={stats().tokens > 0}>
+                            <text fg={theme.textMuted}>{stats().tokens.toLocaleString()}t</text>
+                          </Show>
+                        </box>
+                      )
+                    }}
+                  </For>
+                </Show>
+              </box>
+            </Show>
             <Show when={mcpEntries().length > 0}>
               <box>
                 <box
