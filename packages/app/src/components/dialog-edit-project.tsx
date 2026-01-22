@@ -75,6 +75,7 @@ export function DialogEditProject(props: { project: LocalProject }) {
     const name = store.name.trim() === folderName() ? "" : store.name.trim()
     await globalSDK.client.project.update({
       projectID: props.project.id,
+      directory: props.project.worktree,
       name,
       icon: { color: store.color, override: store.iconUrl },
     })
@@ -192,6 +193,8 @@ export function DialogEditProject(props: { project: LocalProject }) {
                   {(color) => (
                     <button
                       type="button"
+                      aria-label={language.t("dialog.project.edit.color.select", { color })}
+                      aria-pressed={store.color === color}
                       classList={{
                         "flex items-center justify-center size-10 p-0.5 rounded-lg overflow-hidden transition-colors cursor-default": true,
                         "bg-transparent border-2 border-icon-strong-base hover:bg-surface-base-hover":
