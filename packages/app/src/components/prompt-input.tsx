@@ -66,6 +66,7 @@ interface PromptInputProps {
   ref?: (el: HTMLDivElement) => void
   newSessionWorktree?: string
   onNewSessionWorktreeReset?: () => void
+  onSubmit?: (event: Event) => void
 }
 
 const EXAMPLES = [
@@ -357,9 +358,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     }
     if (audio.recorder) return false
 
-    const stream = await navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .catch(() => undefined)
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => undefined)
     if (!stream) {
       showToast({
         title: "Microphone blocked",
@@ -955,9 +954,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
     const hasRange = selection.rangeCount > 0
     const inEditor = hasRange && editorRef.contains(selection.anchorNode)
-    const cursorPosition = inEditor
-      ? getCursorPosition(editorRef)
-      : (prompt.cursor() ?? getCursorPosition(editorRef))
+    const cursorPosition = inEditor ? getCursorPosition(editorRef) : (prompt.cursor() ?? getCursorPosition(editorRef))
     if (!inEditor) {
       editorRef.focus()
       setCursorPosition(editorRef, cursorPosition)
@@ -1804,7 +1801,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 </div>
               </Match>
               <Match when={store.mode === "normal"}>
-                <TooltipKeybind placement="top" title={language.t("command.agent.cycle")} keybind={command.keybind("agent.cycle")}>
+                <TooltipKeybind
+                  placement="top"
+                  title={language.t("command.agent.cycle")}
+                  keybind={command.keybind("agent.cycle")}
+                >
                   <Select
                     options={local.agent.list().map((agent) => agent.name)}
                     current={local.agent.current()?.name ?? ""}
@@ -1816,7 +1817,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                 <Show
                   when={providers.paid().length > 0}
                   fallback={
-                    <TooltipKeybind placement="top" title={language.t("command.model.choose")} keybind={command.keybind("model.choose")}>
+                    <TooltipKeybind
+                      placement="top"
+                      title={language.t("command.model.choose")}
+                      keybind={command.keybind("model.choose")}
+                    >
                       <Button as="div" variant="ghost" onClick={() => dialog.show(() => <DialogSelectModelUnpaid />)}>
                         <Show when={local.model.current()?.provider?.id}>
                           <ProviderIcon id={local.model.current()!.provider.id as IconName} class="size-4 shrink-0" />
@@ -1828,7 +1833,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   }
                 >
                   <ModelSelectorPopover>
-                    <TooltipKeybind placement="top" title={language.t("command.model.choose")} keybind={command.keybind("model.choose")}>
+                    <TooltipKeybind
+                      placement="top"
+                      title={language.t("command.model.choose")}
+                      keybind={command.keybind("model.choose")}
+                    >
                       <Button as="div" variant="ghost">
                         <Show when={local.model.current()?.provider?.id}>
                           <ProviderIcon id={local.model.current()!.provider.id as IconName} class="size-4 shrink-0" />
@@ -1840,7 +1849,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   </ModelSelectorPopover>
                 </Show>
                 <Show when={local.model.variant.list().length > 0}>
-                  <TooltipKeybind placement="top" title={language.t("command.model.variant.cycle")} keybind={command.keybind("model.variant.cycle")}>
+                  <TooltipKeybind
+                    placement="top"
+                    title={language.t("command.model.variant.cycle")}
+                    keybind={command.keybind("model.variant.cycle")}
+                  >
                     <Button
                       variant="ghost"
                       class="text-text-base _hidden group-hover/prompt-input:inline-block capitalize text-12-regular"
@@ -1851,7 +1864,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   </TooltipKeybind>
                 </Show>
                 <Show when={permission.permissionsEnabled() && params.id}>
-                  <TooltipKeybind placement="top" title={language.t("command.permissions.autoaccept.enable")} keybind={command.keybind("permissions.autoaccept")}>
+                  <TooltipKeybind
+                    placement="top"
+                    title={language.t("command.permissions.autoaccept.enable")}
+                    keybind={command.keybind("permissions.autoaccept")}
+                  >
                     <Button
                       variant="ghost"
                       onClick={() => permission.toggleAutoAccept(params.id!, sdk.directory)}
@@ -1895,12 +1912,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
               </Show>
             </div>
             <TooltipKeybind placement="top" title={voiceTitle()} keybind={command.keybind("prompt.voice")}>
-              <IconButton
-                type="button"
-                variant="ghost"
-                class="h-6 w-6"
-                onClick={toggleVoice}
-              >
+              <IconButton type="button" variant="ghost" class="h-6 w-6" onClick={toggleVoice}>
                 <Switch>
                   <Match when={transcribing()}>
                     <Spinner class="size-4 text-icon-base" />
@@ -1944,7 +1956,6 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             </Tooltip>
           </div>
         </div>
-
       </form>
     </div>
   )
