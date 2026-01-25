@@ -667,4 +667,3 @@ export const dict = {
   "sound.option.yup05": "Placeholder",
   "sound.option.yup06": "Placeholder",
 }
-satisfies Partial<Record<Keys, string>>
