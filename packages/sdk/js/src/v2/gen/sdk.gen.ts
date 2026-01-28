@@ -159,6 +159,7 @@ import type {
   TuiShowToastResponses,
   TuiSubmitPromptResponses,
   VcsGetResponses,
+  VoiceWakeWordToggleResponses,
   WorktreeCreateErrors,
   WorktreeCreateInput,
   WorktreeCreateResponses,
@@ -2079,6 +2080,34 @@ export class Audio extends HeyApiClient {
   }
 }
 
+export class WakeWord extends HeyApiClient {
+  /**
+   * Toggle wake word detection
+   *
+   * Start or stop wake word detection
+   */
+  public toggle<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).post<VoiceWakeWordToggleResponses, unknown, ThrowOnError>({
+      url: "/voice/wake-word/toggle",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Voice extends HeyApiClient {
+  private _wakeWord?: WakeWord
+  get wakeWord(): WakeWord {
+    return (this._wakeWord ??= new WakeWord({ client: this.client }))
+  }
+}
+
 export class Find extends HeyApiClient {
   /**
    * Find text
@@ -3186,6 +3215,11 @@ export class OpencodeClient extends HeyApiClient {
   private _audio?: Audio
   get audio(): Audio {
     return (this._audio ??= new Audio({ client: this.client }))
+  }
+
+  private _voice?: Voice
+  get voice(): Voice {
+    return (this._voice ??= new Voice({ client: this.client }))
   }
 
   private _find?: Find

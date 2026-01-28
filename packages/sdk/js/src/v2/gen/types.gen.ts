@@ -1704,6 +1704,10 @@ export type Config = {
        */
       system?: string
     }
+    /**
+     * Enable wake word detection for voice input (default: false)
+     */
+    wakewordEnabled?: boolean
   }
   server?: ServerConfig
   /**
@@ -4106,6 +4110,28 @@ export type AudioTranscribeResponses = {
 }
 
 export type AudioTranscribeResponse = AudioTranscribeResponses[keyof AudioTranscribeResponses]
+
+export type VoiceWakeWordToggleData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/voice/wake-word/toggle"
+}
+
+export type VoiceWakeWordToggleResponses = {
+  /**
+   * Wake word toggle result
+   */
+  200: {
+    success: boolean
+    status: "started" | "stopped" | "failed"
+    message: string
+  }
+}
+
+export type VoiceWakeWordToggleResponse = VoiceWakeWordToggleResponses[keyof VoiceWakeWordToggleResponses]
 
 export type FindTextData = {
   body?: never

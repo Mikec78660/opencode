@@ -46,6 +46,7 @@ export type FileContextItem = {
   commentID?: string
   commentOrigin?: "review" | "file"
   preview?: string
+  active?: boolean
 }
 
 export type ContextItem = FileContextItem
@@ -107,7 +108,22 @@ function clonePrompt(prompt: Prompt): Prompt {
 const WORKSPACE_KEY = "__workspace__"
 const MAX_PROMPT_SESSIONS = 20
 
-type PromptSession = ReturnType<typeof createPromptSession>
+type PromptSession = {
+  ready: () => boolean
+  current: () => Prompt
+  cursor: () => number | undefined
+  dirty: () => boolean
+  context: {
+    items: () => (ContextItem & { key: string })[]
+    activeTab: () => (ContextItem & { key: string }) | undefined
+    add: (item: ContextItem) => void
+    remove: (key: string) => void
+    addActive: () => void
+    removeActive: () => void
+  }
+  set: (prompt: Prompt, cursorPosition?: number) => void
+  reset: () => void
+}
 
 type PromptCacheEntry = {
   value: PromptSession
@@ -157,6 +173,7 @@ function createPromptSession(dir: string, id: string | undefined) {
     dirty: createMemo(() => !isPromptEqual(store.prompt, DEFAULT_PROMPT)),
     context: {
       items: createMemo(() => store.context.items),
+      activeTab: createMemo(() => store.context.items.find((x) => x.active)),
       add(item: ContextItem) {
         const key = keyForItem(item)
         if (store.context.items.find((x) => x.key === key)) return
@@ -164,6 +181,18 @@ function createPromptSession(dir: string, id: string | undefined) {
       },
       remove(key: string) {
         setStore("context", "items", (items) => items.filter((x) => x.key !== key))
+      },
+      addActive() {
+        const activePath = (window as any).activeFile?.()
+        if (activePath) {
+          this.add({ type: "file", path: activePath })
+        }
+      },
+      removeActive() {
+        const active = this.activeTab()
+        if (active) {
+          this.remove(active.key)
+        }
       },
     },
     set(prompt: Prompt, cursorPosition?: number) {
@@ -236,8 +265,11 @@ export const { use: usePrompt, provider: PromptProvider } = createSimpleContext(
       dirty: () => session().dirty(),
       context: {
         items: () => session().context.items(),
+        activeTab: () => session().context.activeTab(),
         add: (item: ContextItem) => session().context.add(item),
         remove: (key: string) => session().context.remove(key),
+        addActive: () => session().context.addActive(),
+        removeActive: () => session().context.removeActive(),
       },
       set: (prompt: Prompt, cursorPosition?: number) => session().set(prompt, cursorPosition),
       reset: () => session().reset(),

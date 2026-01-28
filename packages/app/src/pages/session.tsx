@@ -566,6 +566,16 @@ export default function Page() {
       onSelect: () => navigate(`/${params.dir}/session`),
     },
     {
+      id: "wake.word.toggle",
+      title: "Wake Word",
+      description: "Toggle wake word detection",
+      category: "Session",
+      keybind: "mod+p",
+      onSelect: () => {
+        console.log("Wake word toggle triggered")
+      },
+    },
+    {
       id: "file.open",
       title: "Open file",
       description: "Search files and commands",

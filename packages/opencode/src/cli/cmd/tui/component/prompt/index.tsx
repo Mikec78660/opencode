@@ -87,10 +87,20 @@ export function Prompt(props: PromptProps) {
   }
 
   const textareaKeybindings = useTextareaKeybindings()
-  const voiceConfig = createMemo(() => sync.data.config.tui?.voice)
+  const voiceConfig = createMemo(() => {
+    const voice = sync.data.config.tui?.voice
+    return voice ? { command: voice.command, mime: voice.mime } : undefined
+  })
   const voice = Voice.create({
     config: voiceConfig,
-    transcription: () => sync.data.config.voice,
+    transcription: () => {
+      const voice = sync.data.config.voice
+      if (!voice) return undefined
+      return {
+        ...voice,
+        wakewordEnabled: voice.wakewordEnabled ?? false,
+      }
+    },
     sessionID: () => props.sessionID,
     prompt: () => store.prompt.input,
   })

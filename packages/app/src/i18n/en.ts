@@ -28,6 +28,8 @@ export const dict = {
   "command.session.previous": "Previous session",
   "command.session.next": "Next session",
   "command.session.archive": "Archive session",
+  "command.session.toggle.wakeword": "Toggle wake word",
+  "command.session.toggle.wakeword.description": "Enable or disable wake word detection",
 
   "command.palette": "Command palette",
 
