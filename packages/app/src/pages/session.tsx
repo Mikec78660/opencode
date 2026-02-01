@@ -556,352 +556,403 @@ export default function Page() {
     })
   }
 
-  command.register(() => [
-    {
-      id: "session.new",
-      title: "New session",
-      category: "Session",
-      keybind: "mod+shift+s",
-      slash: "new",
-      onSelect: () => navigate(`/${params.dir}/session`),
-    },
-    {
-      id: "wake.word.toggle",
-      title: "Wake Word",
-      description: "Toggle wake word detection",
-      category: "Session",
-      keybind: "mod+p",
-      onSelect: () => {
-        console.log("Wake word toggle triggered")
+  command.register(() => {
+    console.log("Registering commands...")
+    console.log("Wake word command will be registered...")
+    return [
+      {
+        id: "session.new",
+        title: "New session",
+        category: "Session",
+        keybind: "mod+shift+s",
+        slash: "new",
+        onSelect: () => navigate(`/${params.dir}/session`),
       },
-    },
-    {
-      id: "file.open",
-      title: "Open file",
-      description: "Search files and commands",
-      category: "File",
-      keybind: "mod+p",
-      slash: "open",
-      onSelect: () => dialog.show(() => <DialogSelectFile />),
-    },
-    {
-      id: "context.addSelection",
-      title: "Add selection to context",
-      description: "Add selected lines from the current file",
-      category: "Context",
-      keybind: "mod+shift+l",
-      disabled: (() => {
-        const active = tabs().active()
-        if (!active) return true
-        const path = file.pathFromTab(active)
-        if (!path) return true
-        return file.selectedLines(path) == null
-      })(),
-      onSelect: () => {
-        const active = tabs().active()
-        if (!active) return
-        const path = file.pathFromTab(active)
-        if (!path) return
+      {
+        id: "wake.word.toggle",
+        title: "Wake Word",
+        description: "Toggle wake word detection",
+        category: "Session",
+        keybind: "mod+shift+v",
+        onSelect: async () => {
+          console.log("Wake word command triggered")
+          try {
+            console.log("Attempting to toggle wake word...")
+            const response = await sdk.client.voice.wakeWord.toggle({ directory: params.dir })
+            const result = response.data
 
-        const range = file.selectedLines(path)
-        if (!range) {
-          showToast({
-            title: "No line selection",
-            description: "Select a line range in a file tab first.",
-          })
-          return
-        }
+            if (result?.success) {
+              showToast({
+                title: "Wake Word",
+                description: `Wake word detection ${result.status}`,
+              })
+            } else if (result?.message?.includes("not enabled in config")) {
+              showToast({
+                title: "Wake Word Not Enabled",
+                description:
+                  "Wake word detection must be enabled in settings first. Go to Settings → Voice → Enable Wake Word Detection.",
+                duration: 8000,
+              })
+            } else {
+              showToast({
+                title: "Error",
+                description: result?.message || "Failed to toggle wake word detection",
+              })
+            }
+          } catch (error) {
+            console.error("Wake word toggle error:", error)
+            showToast({
+              title: "Error",
+              description: "Failed to toggle wake word detection",
+            })
+          }
+        },
+      },
+      {
+        id: "file.open",
+        title: "Open file",
+        description: "Search files and commands",
+        category: "File",
+        keybind: "mod+p",
+        slash: "open",
+        onSelect: () => dialog.show(() => <DialogSelectFile />),
+      },
+      {
+        id: "context.addSelection",
+        title: "Add selection to context",
+        description: "Add selected lines from the current file",
+        category: "Context",
+        keybind: "mod+shift+l",
+        disabled: (() => {
+          const active = tabs().active()
+          if (!active) return true
+          const path = file.pathFromTab(active)
+          if (!path) return true
+          return file.selectedLines(path) == null
+        })(),
+        onSelect: () => {
+          const active = tabs().active()
+          if (!active) return
+          const path = file.pathFromTab(active)
+          if (!path) return
 
-        addSelectionToContext(path, selectionFromLines(range))
+          const range = file.selectedLines(path)
+          if (!range) {
+            showToast({
+              title: "No line selection",
+              description: "Select a line range in a file tab first.",
+            })
+            return
+          }
+
+          addSelectionToContext(path, selectionFromLines(range))
+        },
       },
-    },
-    {
-      id: "terminal.toggle",
-      title: "Toggle terminal",
-      description: "",
-      category: "View",
-      keybind: "ctrl+`",
-      slash: "terminal",
-      onSelect: () => view().terminal.toggle(),
-    },
-    {
-      id: "review.toggle",
-      title: "Toggle review",
-      description: "",
-      category: "View",
-      keybind: "mod+shift+r",
-      onSelect: () => view().reviewPanel.toggle(),
-    },
-    {
-      id: "terminal.new",
-      title: language.t("command.terminal.new"),
-      description: language.t("command.terminal.new.description"),
-      category: language.t("command.category.terminal"),
-      keybind: "ctrl+alt+t",
-      onSelect: () => {
-        if (terminal.all().length > 0) terminal.new()
-        view().terminal.open()
+      {
+        id: "terminal.toggle",
+        title: "Toggle terminal",
+        description: "",
+        category: "View",
+        keybind: "ctrl+`",
+        slash: "terminal",
+        onSelect: () => view().terminal.toggle(),
       },
-    },
-    {
-      id: "steps.toggle",
-      title: "Toggle steps",
-      description: "Show or hide steps for the current message",
-      category: "View",
-      keybind: "mod+e",
-      slash: "steps",
-      disabled: !params.id,
-      onSelect: () => {
-        const msg = activeMessage()
-        if (!msg) return
-        setStore("expanded", msg.id, (open: boolean | undefined) => !open)
+      {
+        id: "review.toggle",
+        title: "Toggle review",
+        description: "",
+        category: "View",
+        keybind: "mod+shift+r",
+        onSelect: () => view().reviewPanel.toggle(),
       },
-    },
-    {
-      id: "message.previous",
-      title: "Previous message",
-      description: "Go to the previous user message",
-      category: "Session",
-      keybind: "mod+arrowup",
-      disabled: !params.id,
-      onSelect: () => navigateMessageByOffset(-1),
-    },
-    {
-      id: "message.next",
-      title: "Next message",
-      description: "Go to the next user message",
-      category: "Session",
-      keybind: "mod+arrowdown",
-      disabled: !params.id,
-      onSelect: () => navigateMessageByOffset(1),
-    },
-    {
-      id: "model.choose",
-      title: "Choose model",
-      description: "Select a different model",
-      category: "Model",
-      keybind: "mod+'",
-      slash: "model",
-      onSelect: () => dialog.show(() => <DialogSelectModel />),
-    },
-    {
-      id: "mcp.toggle",
-      title: "Toggle MCPs",
-      description: "Toggle MCPs",
-      category: "MCP",
-      keybind: "mod+;",
-      slash: "mcp",
-      onSelect: () => dialog.show(() => <DialogSelectMcp />),
-    },
-    {
-      id: "agent.cycle",
-      title: "Cycle agent",
-      description: "Switch to the next agent",
-      category: "Agent",
-      keybind: "mod+.",
-      slash: "agent",
-      onSelect: () => local.agent.move(1),
-    },
-    {
-      id: "agent.cycle.reverse",
-      title: "Cycle agent backwards",
-      description: "Switch to the previous agent",
-      category: "Agent",
-      keybind: "shift+mod+.",
-      onSelect: () => local.agent.move(-1),
-    },
-    {
-      id: "model.variant.cycle",
-      title: "Cycle thinking effort",
-      description: "Switch to the next effort level",
-      category: "Model",
-      keybind: "shift+mod+d",
-      onSelect: () => {
-        local.model.variant.cycle()
+      {
+        id: "terminal.new",
+        title: language.t("command.terminal.new"),
+        description: language.t("command.terminal.new.description"),
+        category: language.t("command.category.terminal"),
+        keybind: "ctrl+alt+t",
+        onSelect: () => {
+          if (terminal.all().length > 0) terminal.new()
+          view().terminal.open()
+        },
       },
-    },
-    {
-      id: "permissions.autoaccept",
-      title:
-        params.id && permission.isAutoAccepting(params.id, sdk.directory)
-          ? "Stop auto-accepting edits"
-          : "Auto-accept edits",
-      category: "Permissions",
-      keybind: "mod+shift+a",
-      disabled: !params.id || !permission.permissionsEnabled(),
-      onSelect: () => {
-        const sessionID = params.id
-        if (!sessionID) return
-        permission.toggleAutoAccept(sessionID, sdk.directory)
-        showToast({
-          title: permission.isAutoAccepting(sessionID, sdk.directory)
-            ? "Auto-accepting edits"
-            : "Stopped auto-accepting edits",
-          description: permission.isAutoAccepting(sessionID, sdk.directory)
-            ? "Edit and write permissions will be automatically approved"
-            : "Edit and write permissions will require approval",
-        })
+      {
+        id: "steps.toggle",
+        title: "Toggle steps",
+        description: "Show or hide steps for the current message",
+        category: "View",
+        keybind: "mod+e",
+        slash: "steps",
+        disabled: !params.id,
+        onSelect: () => {
+          const msg = activeMessage()
+          if (!msg) return
+          setStore("expanded", msg.id, (open: boolean | undefined) => !open)
+        },
       },
-    },
-    {
-      id: "session.undo",
-      title: "Undo",
-      description: "Undo the last message",
-      category: "Session",
-      slash: "undo",
-      disabled: !params.id || visibleUserMessages().length === 0,
-      onSelect: async () => {
-        const sessionID = params.id
-        if (!sessionID) return
-        if (status()?.type !== "idle") {
-          await sdk.client.session.abort({ sessionID }).catch(() => {})
-        }
-        const revert = info()?.revert?.messageID
-        // Find the last user message that's not already reverted
-        const message = userMessages().findLast((x) => !revert || x.id < revert)
-        if (!message) return
-        await sdk.client.session.revert({ sessionID, messageID: message.id })
-        // Restore the prompt from the reverted message
-        const parts = sync.data.part[message.id]
-        if (parts) {
-          const restored = extractPromptFromParts(parts, { directory: sdk.directory })
-          prompt.set(restored)
-        }
-        // Navigate to the message before the reverted one (which will be the new last visible message)
-        const priorMessage = userMessages().findLast((x) => x.id < message.id)
-        setActiveMessage(priorMessage)
+      {
+        id: "message.previous",
+        title: "Previous message",
+        description: "Go to the previous user message",
+        category: "Session",
+        keybind: "mod+arrowup",
+        disabled: !params.id,
+        onSelect: () => navigateMessageByOffset(-1),
       },
-    },
-    {
-      id: "session.redo",
-      title: "Redo",
-      description: "Redo the last undone message",
-      category: "Session",
-      slash: "redo",
-      disabled: !params.id || !info()?.revert?.messageID,
-      onSelect: async () => {
-        const sessionID = params.id
-        if (!sessionID) return
-        const revertMessageID = info()?.revert?.messageID
-        if (!revertMessageID) return
-        const nextMessage = userMessages().find((x) => x.id > revertMessageID)
-        if (!nextMessage) {
-          // Full unrevert - restore all messages and navigate to last
-          await sdk.client.session.unrevert({ sessionID })
-          prompt.reset()
-          // Navigate to the last message (the one that was at the revert point)
-          const lastMsg = userMessages().findLast((x) => x.id >= revertMessageID)
-          setActiveMessage(lastMsg)
-          return
-        }
-        // Partial redo - move forward to next message
-        await sdk.client.session.revert({ sessionID, messageID: nextMessage.id })
-        // Navigate to the message before the new revert point
-        const priorMsg = userMessages().findLast((x) => x.id < nextMessage.id)
-        setActiveMessage(priorMsg)
+      {
+        id: "message.next",
+        title: "Next message",
+        description: "Go to the next user message",
+        category: "Session",
+        keybind: "mod+arrowdown",
+        disabled: !params.id,
+        onSelect: () => navigateMessageByOffset(1),
       },
-    },
-    {
-      id: "session.compact",
-      title: "Compact session",
-      description: "Summarize the session to reduce context size",
-      category: "Session",
-      slash: "compact",
-      disabled: !params.id || visibleUserMessages().length === 0,
-      onSelect: async () => {
-        const sessionID = params.id
-        if (!sessionID) return
-        const model = local.model.current()
-        if (!model) {
+      {
+        id: "model.choose",
+        title: "Choose model",
+        description: "Select a different model",
+        category: "Model",
+        keybind: "mod+'",
+        slash: "model",
+        onSelect: () => dialog.show(() => <DialogSelectModel />),
+      },
+      {
+        id: "mcp.toggle",
+        title: "Toggle MCPs",
+        description: "Toggle MCPs",
+        category: "MCP",
+        keybind: "mod+;",
+        slash: "mcp",
+        onSelect: () => dialog.show(() => <DialogSelectMcp />),
+      },
+      {
+        id: "agent.cycle",
+        title: "Cycle agent",
+        description: "Switch to the next agent",
+        category: "Agent",
+        keybind: "mod+.",
+        slash: "agent",
+        onSelect: () => local.agent.move(1),
+      },
+      {
+        id: "agent.cycle.reverse",
+        title: "Cycle agent backwards",
+        description: "Switch to the previous agent",
+        category: "Agent",
+        keybind: "shift+mod+.",
+        onSelect: () => local.agent.move(-1),
+      },
+      {
+        id: "model.variant.cycle",
+        title: "Cycle thinking effort",
+        description: "Switch to the next effort level",
+        category: "Model",
+        keybind: "shift+mod+d",
+        onSelect: () => {
+          local.model.variant.cycle()
+        },
+      },
+      {
+        id: "permissions.autoaccept",
+        title:
+          params.id && permission.isAutoAccepting(params.id, sdk.directory)
+            ? "Stop auto-accepting edits"
+            : "Auto-accept edits",
+        category: "Permissions",
+        keybind: "mod+shift+a",
+        disabled: !params.id || !permission.permissionsEnabled(),
+        onSelect: () => {
+          const sessionID = params.id
+          if (!sessionID) return
+          permission.toggleAutoAccept(sessionID, sdk.directory)
           showToast({
-            title: "No model selected",
-            description: "Connect a provider to summarize this session",
+            title: permission.isAutoAccepting(sessionID, sdk.directory)
+              ? "Auto-accepting edits"
+              : "Stopped auto-accepting edits",
+            description: permission.isAutoAccepting(sessionID, sdk.directory)
+              ? "Edit and write permissions will be automatically approved"
+              : "Edit and write permissions will require approval",
           })
-          return
-        }
-        await sdk.client.session.summarize({
-          sessionID,
-          modelID: model.id,
-          providerID: model.provider.id,
-        })
+        },
       },
-    },
-    {
-      id: "session.fork",
-      title: "Fork from message",
-      description: "Create a new session from a previous message",
-      category: "Session",
-      slash: "fork",
-      disabled: !params.id || visibleUserMessages().length === 0,
-      onSelect: () => dialog.show(() => <DialogFork />),
-    },
-    ...(sync.data.config.share !== "disabled"
-      ? [
-          {
-            id: "session.share",
-            title: "Share session",
-            description: "Share this session and copy the URL to clipboard",
-            category: "Session",
-            slash: "share",
-            disabled: !params.id || !!info()?.share?.url,
-            onSelect: async () => {
-              if (!params.id) return
-              await sdk.client.session
-                .share({ sessionID: params.id })
-                .then((res) => {
-                  navigator.clipboard.writeText(res.data!.share!.url).catch(() =>
+      {
+        id: "session.undo",
+        title: "Undo",
+        description: "Undo the last message",
+        category: "Session",
+        slash: "undo",
+        disabled: !params.id || visibleUserMessages().length === 0,
+        onSelect: async () => {
+          const sessionID = params.id
+          if (!sessionID) return
+          if (status()?.type !== "idle") {
+            await sdk.client.session.abort({ sessionID }).catch(() => {})
+          }
+          const revert = info()?.revert?.messageID
+          // Find the last user message that's not already reverted
+          const message = userMessages().findLast((x) => !revert || x.id < revert)
+          if (!message) return
+          await sdk.client.session.revert({ sessionID, messageID: message.id })
+          // Restore the prompt from the reverted message
+          const parts = sync.data.part[message.id]
+          if (parts) {
+            const restored = extractPromptFromParts(parts, { directory: sdk.directory })
+            prompt.set(restored)
+          }
+          // Navigate to the message before the reverted one (which will be the new last visible message)
+          const priorMessage = userMessages().findLast((x) => x.id < message.id)
+          setActiveMessage(priorMessage)
+        },
+      },
+      {
+        id: "session.redo",
+        title: "Redo",
+        description: "Redo the last undone message",
+        category: "Session",
+        slash: "redo",
+        disabled: !params.id || !info()?.revert?.messageID,
+        onSelect: async () => {
+          const sessionID = params.id
+          if (!sessionID) return
+          const revertMessageID = info()?.revert?.messageID
+          if (!revertMessageID) return
+          const nextMessage = userMessages().find((x) => x.id > revertMessageID)
+          if (!nextMessage) {
+            // Full unrevert - restore all messages and navigate to last
+            await sdk.client.session.unrevert({ sessionID })
+            prompt.reset()
+            // Navigate to the last message (the one that was at the revert point)
+            const lastMsg = userMessages().findLast((x) => x.id >= revertMessageID)
+            setActiveMessage(lastMsg)
+            return
+          }
+          // Partial redo - move forward to next message
+          await sdk.client.session.revert({ sessionID, messageID: nextMessage.id })
+          // Navigate to the message before the new revert point
+          const priorMsg = userMessages().findLast((x) => x.id < nextMessage.id)
+          setActiveMessage(priorMsg)
+        },
+      },
+      {
+        id: "session.compact",
+        title: "Compact session",
+        description: "Summarize the session to reduce context size",
+        category: "Session",
+        slash: "compact",
+        disabled: !params.id || visibleUserMessages().length === 0,
+        onSelect: async () => {
+          // Toggle wake word detection
+          try {
+            const response = await sdk.client.voice.wakeWord.toggle({ directory: params.dir })
+            const result = response.data
+
+            if (result?.success) {
+              showToast({
+                title: "Wake Word",
+                description: `Wake word detection ${result.status}`,
+              })
+            } else if (result?.message?.includes("not enabled in config")) {
+              showToast({
+                title: "Wake Word Not Enabled",
+                description:
+                  "Wake word detection must be enabled in settings first. Go to Settings → Voice → Enable Wake Word Detection.",
+              })
+                duration: 8000,
+              })
+            } else {
+              showToast({
+                title: "Error",
+                description: result?.message || "Failed to toggle wake word detection",
+              })
+            }
+          } catch (error) {
+            console.error("Wake word toggle error:", error)
+            showToast({
+              title: "Error",
+              description: "Failed to toggle wake word detection",
+            })
+          }
+          }
+        },
+      },
+      {
+        id: "session.fork",
+        title: "Fork from message",
+        description: "Create a new session from a previous message",
+        category: "Session",
+        slash: "fork",
+        disabled: !params.id || visibleUserMessages().length === 0,
+        onSelect: () => dialog.show(() => <DialogFork />),
+      },
+      ...(sync.data.config.share !== "disabled"
+        ? [
+            {
+              id: "session.share",
+              title: "Share session",
+              description: "Share this session and copy the URL to clipboard",
+              category: "Session",
+              slash: "share",
+              disabled: !params.id || !!info()?.share?.url,
+              onSelect: async () => {
+                if (!params.id) return
+                await sdk.client.session
+                  .share({ sessionID: params.id })
+                  .then((res) => {
+                    navigator.clipboard.writeText(res.data!.share!.url).catch(() =>
+                      showToast({
+                        title: "Failed to copy URL to clipboard",
+                        variant: "error",
+                      }),
+                    )
+                  })
+                  .then(() =>
                     showToast({
-                      title: "Failed to copy URL to clipboard",
+                      title: "Session shared",
+                      description: "Share URL copied to clipboard!",
+                      variant: "success",
+                    }),
+                  )
+                  .catch(() =>
+                    showToast({
+                      title: "Failed to share session",
+                      description: "An error occurred while sharing the session",
                       variant: "error",
                     }),
                   )
-                })
-                .then(() =>
-                  showToast({
-                    title: "Session shared",
-                    description: "Share URL copied to clipboard!",
-                    variant: "success",
-                  }),
-                )
-                .catch(() =>
-                  showToast({
-                    title: "Failed to share session",
-                    description: "An error occurred while sharing the session",
-                    variant: "error",
-                  }),
-                )
+              },
             },
-          },
-          {
-            id: "session.unshare",
-            title: "Unshare session",
-            description: "Stop sharing this session",
-            category: "Session",
-            slash: "unshare",
-            disabled: !params.id || !info()?.share?.url,
-            onSelect: async () => {
-              if (!params.id) return
-              await sdk.client.session
-                .unshare({ sessionID: params.id })
-                .then(() =>
-                  showToast({
-                    title: "Session unshared",
-                    description: "Session unshared successfully!",
-                    variant: "success",
-                  }),
-                )
-                .catch(() =>
-                  showToast({
-                    title: "Failed to unshare session",
-                    description: "An error occurred while unsharing the session",
-                    variant: "error",
-                  }),
-                )
+            {
+              id: "session.unshare",
+              title: "Unshare session",
+              description: "Stop sharing this session",
+              category: "Session",
+              slash: "unshare",
+              disabled: !params.id || !info()?.share?.url,
+              onSelect: async () => {
+                if (!params.id) return
+                await sdk.client.session
+                  .unshare({ sessionID: params.id })
+                  .then(() =>
+                    showToast({
+                      title: "Session unshared",
+                      description: "Session unshared successfully!",
+                      variant: "success",
+                    }),
+                  )
+                  .catch(() =>
+                    showToast({
+                      title: "Failed to unshare session",
+                      description: "An error occurred while unsharing the session",
+                      variant: "error",
+                    }),
+                  )
+              },
             },
-          },
-        ]
-      : []),
-  ])
+          ]
+        : []),
+    ]
+  })
 
   const handleKeyDown = (event: KeyboardEvent) => {
     const activeElement = document.activeElement as HTMLElement | undefined

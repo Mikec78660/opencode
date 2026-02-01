@@ -18,6 +18,7 @@ import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
 import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
+import { DialogVoice } from "./component/dialog-voice"
 import { KeybindProvider } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
@@ -476,6 +477,17 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogHelp />)
+      },
+      category: "System",
+    },
+    {
+      title: "Voice settings",
+      value: "voice.settings",
+      slash: {
+        name: "voice",
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogVoice />)
       },
       category: "System",
     },

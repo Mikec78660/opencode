@@ -1154,6 +1154,10 @@ export type KeybindsConfig = {
    */
   input_voice?: string
   /**
+   * Toggle wake word detection
+   */
+  wake_word_toggle?: string
+  /**
    * Submit input
    */
   input_submit?: string
