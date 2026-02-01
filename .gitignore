@@ -27,3 +27,7 @@ opencode-dev
 logs/
 *.bun-build
 bin/
+.bin/
+_packages/opencode/dist/
+_packages/ui/src/assets/fonts/iosevka-nerd-font-bold.woff2
+_packages/ui/src/assets/fonts/iosevka-nerd-font
