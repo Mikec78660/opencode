@@ -159,6 +159,7 @@ import type {
   TuiShowToastResponses,
   TuiSubmitPromptResponses,
   VcsGetResponses,
+  VoiceWakeWordToggleResponses,
   WorktreeCreateErrors,
   WorktreeCreateInput,
   WorktreeCreateResponses,
@@ -294,7 +295,7 @@ export class Project extends HeyApiClient {
   /**
    * Update project
    *
-   * Update project properties such as name, icon and color.
+   * Update project properties such as name, icon, and commands.
    */
   public update<ThrowOnError extends boolean = false>(
     parameters: {
@@ -305,6 +306,12 @@ export class Project extends HeyApiClient {
         url?: string
         override?: string
         color?: string
+      }
+      commands?: {
+        /**
+         * Startup script to run when creating a new workspace (worktree)
+         */
+        start?: string
       }
     },
     options?: Options<never, ThrowOnError>,
@@ -318,6 +325,7 @@ export class Project extends HeyApiClient {
             { in: "query", key: "directory" },
             { in: "body", key: "name" },
             { in: "body", key: "icon" },
+            { in: "body", key: "commands" },
           ],
         },
       ],
@@ -719,7 +727,7 @@ export class Worktree extends HeyApiClient {
   /**
    * Create worktree
    *
-   * Create a new git worktree for the current project.
+   * Create a new git worktree for the current project and run any configured startup scripts.
    */
   public create<ThrowOnError extends boolean = false>(
     parameters?: {
@@ -2072,6 +2080,34 @@ export class Audio extends HeyApiClient {
   }
 }
 
+export class WakeWord extends HeyApiClient {
+  /**
+   * Toggle wake word detection
+   *
+   * Start or stop wake word detection
+   */
+  public toggle<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).post<VoiceWakeWordToggleResponses, unknown, ThrowOnError>({
+      url: "/voice/wake-word/toggle",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Voice extends HeyApiClient {
+  private _wakeWord?: WakeWord
+  get wakeWord(): WakeWord {
+    return (this._wakeWord ??= new WakeWord({ client: this.client }))
+  }
+}
+
 export class Find extends HeyApiClient {
   /**
    * Find text
@@ -3179,6 +3215,11 @@ export class OpencodeClient extends HeyApiClient {
   private _audio?: Audio
   get audio(): Audio {
     return (this._audio ??= new Audio({ client: this.client }))
+  }
+
+  private _voice?: Voice
+  get voice(): Voice {
+    return (this._voice ??= new Voice({ client: this.client }))
   }
 
   private _find?: Find

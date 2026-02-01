@@ -4,6 +4,7 @@ import { batch, createMemo, createRoot, onCleanup } from "solid-js"
 import { useParams } from "@solidjs/router"
 import type { FileSelection } from "@/context/file"
 import { Persist, persisted } from "@/utils/persist"
+import { checksum } from "@opencode-ai/util/encode"
 
 interface PartBase {
   content: string
@@ -41,6 +42,11 @@ export type FileContextItem = {
   type: "file"
   path: string
   selection?: FileSelection
+  comment?: string
+  commentID?: string
+  commentOrigin?: "review" | "file"
+  preview?: string
+  active?: boolean
 }
 
 export type ContextItem = FileContextItem
@@ -102,7 +108,22 @@ function clonePrompt(prompt: Prompt): Prompt {
 const WORKSPACE_KEY = "__workspace__"
 const MAX_PROMPT_SESSIONS = 20
 
-type PromptSession = ReturnType<typeof createPromptSession>
+type PromptSession = {
+  ready: () => boolean
+  current: () => Prompt
+  cursor: () => number | undefined
+  dirty: () => boolean
+  context: {
+    items: () => (ContextItem & { key: string })[]
+    activeTab: () => (ContextItem & { key: string }) | undefined
+    add: (item: ContextItem) => void
+    remove: (key: string) => void
+    addActive: () => void
+    removeActive: () => void
+  }
+  set: (prompt: Prompt, cursorPosition?: number) => void
+  reset: () => void
+}
 
 type PromptCacheEntry = {
   value: PromptSession
@@ -118,14 +139,12 @@ function createPromptSession(dir: string, id: string | undefined) {
       prompt: Prompt
       cursor?: number
       context: {
-        activeTab: boolean
         items: (ContextItem & { key: string })[]
       }
     }>({
       prompt: clonePrompt(DEFAULT_PROMPT),
       cursor: undefined,
       context: {
-        activeTab: true,
         items: [],
       },
     }),
@@ -135,7 +154,16 @@ function createPromptSession(dir: string, id: string | undefined) {
     if (item.type !== "file") return item.type
     const start = item.selection?.startLine
     const end = item.selection?.endLine
-    return `${item.type}:${item.path}:${start}:${end}`
+    const key = `${item.type}:${item.path}:${start}:${end}`
+
+    if (item.commentID) {
+      return `${key}:c=${item.commentID}`
+    }
+
+    const comment = item.comment?.trim()
+    if (!comment) return key
+    const digest = checksum(comment) ?? comment
+    return `${key}:c=${digest.slice(0, 8)}`
   }
 
   return {
@@ -144,14 +172,8 @@ function createPromptSession(dir: string, id: string | undefined) {
     cursor: createMemo(() => store.cursor),
     dirty: createMemo(() => !isPromptEqual(store.prompt, DEFAULT_PROMPT)),
     context: {
-      activeTab: createMemo(() => store.context.activeTab),
       items: createMemo(() => store.context.items),
-      addActive() {
-        setStore("context", "activeTab", true)
-      },
-      removeActive() {
-        setStore("context", "activeTab", false)
-      },
+      activeTab: createMemo(() => store.context.items.find((x) => x.active)),
       add(item: ContextItem) {
         const key = keyForItem(item)
         if (store.context.items.find((x) => x.key === key)) return
@@ -159,6 +181,18 @@ function createPromptSession(dir: string, id: string | undefined) {
       },
       remove(key: string) {
         setStore("context", "items", (items) => items.filter((x) => x.key !== key))
+      },
+      addActive() {
+        const activePath = (window as any).activeFile?.()
+        if (activePath) {
+          this.add({ type: "file", path: activePath })
+        }
+      },
+      removeActive() {
+        const active = this.activeTab()
+        if (active) {
+          this.remove(active.key)
+        }
       },
     },
     set(prompt: Prompt, cursorPosition?: number) {
@@ -230,12 +264,12 @@ export const { use: usePrompt, provider: PromptProvider } = createSimpleContext(
       cursor: () => session().cursor(),
       dirty: () => session().dirty(),
       context: {
-        activeTab: () => session().context.activeTab(),
         items: () => session().context.items(),
-        addActive: () => session().context.addActive(),
-        removeActive: () => session().context.removeActive(),
+        activeTab: () => session().context.activeTab(),
         add: (item: ContextItem) => session().context.add(item),
         remove: (key: string) => session().context.remove(key),
+        addActive: () => session().context.addActive(),
+        removeActive: () => session().context.removeActive(),
       },
       set: (prompt: Prompt, cursorPosition?: number) => session().set(prompt, cursorPosition),
       reset: () => session().reset(),

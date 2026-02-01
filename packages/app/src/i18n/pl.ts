@@ -88,6 +88,8 @@ export const dict = {
   "dialog.provider.group.other": "Inne",
   "dialog.provider.tag.recommended": "Zalecane",
   "dialog.provider.anthropic.note": "Połącz z Claude Pro/Max lub kluczem API",
+  "dialog.provider.openai.note": "Połącz z ChatGPT Pro/Plus lub kluczem API",
+  "dialog.provider.copilot.note": "Połącz z Copilot lub kluczem API",
 
   "dialog.model.select.title": "Wybierz model",
   "dialog.model.search.placeholder": "Szukaj modeli",
@@ -221,6 +223,9 @@ export const dict = {
   "dialog.mcp.description": "{{enabled}} z {{total}} włączone",
   "dialog.mcp.empty": "Brak skonfigurowanych MCP",
 
+  "dialog.lsp.empty": "LSP wykryte automatycznie na podstawie typów plików",
+  "dialog.plugins.empty": "Wtyczki skonfigurowane w opencode.json",
+
   "mcp.status.connected": "połączono",
   "mcp.status.failed": "niepowodzenie",
   "mcp.status.needs_auth": "wymaga autoryzacji",
@@ -240,7 +245,7 @@ export const dict = {
   "dialog.server.add.placeholder": "http://localhost:4096",
   "dialog.server.add.error": "Nie można połączyć się z serwerem",
   "dialog.server.add.checking": "Sprawdzanie...",
-  "dialog.server.add.button": "Dodaj",
+  "dialog.server.add.button": "Dodaj serwer",
   "dialog.server.default.title": "Domyślny serwer",
   "dialog.server.default.description":
     "Połącz z tym serwerem przy uruchomieniu aplikacji zamiast uruchamiać lokalny serwer. Wymaga restartu.",
@@ -248,6 +253,13 @@ export const dict = {
   "dialog.server.default.set": "Ustaw bieżący serwer jako domyślny",
   "dialog.server.default.clear": "Wyczyść",
   "dialog.server.action.remove": "Usuń serwer",
+
+  "dialog.server.menu.edit": "Edytuj",
+  "dialog.server.menu.default": "Ustaw jako domyślny",
+  "dialog.server.menu.defaultRemove": "Usuń domyślny",
+  "dialog.server.menu.delete": "Usuń",
+  "dialog.server.current": "Obecny serwer",
+  "dialog.server.status.default": "Domyślny",
 
   "dialog.project.edit.title": "Edytuj projekt",
   "dialog.project.edit.name": "Nazwa",
@@ -304,6 +316,7 @@ export const dict = {
   "language.ru": "Rosyjski",
   "language.ar": "Arabski",
   "language.no": "Norweski",
+  "language.br": "Portugalski (Brazylia)",
 
   "toast.language.title": "Język",
   "toast.language.description": "Przełączono na {{language}}",
@@ -447,6 +460,7 @@ export const dict = {
   "common.learnMore": "Dowiedz się więcej",
   "common.rename": "Zmień nazwę",
   "common.reset": "Resetuj",
+  "common.archive": "Archiwizuj",
   "common.delete": "Usuń",
   "common.close": "Zamknij",
   "common.edit": "Edytuj",
@@ -624,6 +638,11 @@ export const dict = {
   "settings.permissions.tool.external_directory.description": "Dostęp do plików poza katalogiem projektu",
   "settings.permissions.tool.doom_loop.title": "Zapętlenie",
   "settings.permissions.tool.doom_loop.description": "Wykrywanie powtarzających się wywołań narzędzi (doom loop)",
+
+  "session.delete.failed.title": "Nie udało się usunąć sesji",
+  "session.delete.title": "Usuń sesję",
+  "session.delete.confirm": 'Usunąć sesję "{{name}}"?',
+  "session.delete.button": "Usuń sesję",
 
   "workspace.new": "Nowa przestrzeń robocza",
   "workspace.type.local": "lokalna",

@@ -90,6 +90,8 @@ export const dict = {
   "dialog.provider.group.other": "其他",
   "dialog.provider.tag.recommended": "推薦",
   "dialog.provider.anthropic.note": "使用 Claude Pro/Max 或 API 金鑰連線",
+  "dialog.provider.openai.note": "使用 ChatGPT Pro/Plus 或 API 金鑰連線",
+  "dialog.provider.copilot.note": "使用 Copilot 或 API 金鑰連線",
 
   "dialog.model.select.title": "選擇模型",
   "dialog.model.search.placeholder": "搜尋模型",
@@ -205,6 +207,9 @@ export const dict = {
   "dialog.mcp.description": "已啟用 {{enabled}} / {{total}}",
   "dialog.mcp.empty": "未設定 MCP",
 
+  "dialog.lsp.empty": "已從檔案類型自動偵測到 LSPs",
+  "dialog.plugins.empty": "在 opencode.json 中設定的外掛程式",
+
   "mcp.status.connected": "已連線",
   "mcp.status.failed": "失敗",
   "mcp.status.needs_auth": "需要授權",
@@ -224,13 +229,20 @@ export const dict = {
   "dialog.server.add.placeholder": "http://localhost:4096",
   "dialog.server.add.error": "無法連線到伺服器",
   "dialog.server.add.checking": "檢查中...",
-  "dialog.server.add.button": "新增",
+  "dialog.server.add.button": "新增伺服器",
   "dialog.server.default.title": "預設伺服器",
   "dialog.server.default.description": "應用程式啟動時連線此伺服器，而不是啟動本地伺服器。需要重新啟動。",
   "dialog.server.default.none": "未選擇伺服器",
   "dialog.server.default.set": "將目前伺服器設為預設",
   "dialog.server.default.clear": "清除",
   "dialog.server.action.remove": "移除伺服器",
+
+  "dialog.server.menu.edit": "編輯",
+  "dialog.server.menu.default": "設為預設",
+  "dialog.server.menu.defaultRemove": "取消預設",
+  "dialog.server.menu.delete": "刪除",
+  "dialog.server.current": "目前伺服器",
+  "dialog.server.status.default": "預設",
 
   "dialog.project.edit.title": "編輯專案",
   "dialog.project.edit.name": "名稱",
@@ -282,6 +294,7 @@ export const dict = {
   "language.ru": "俄語",
   "language.ar": "阿拉伯語",
   "language.no": "挪威語",
+  "language.br": "葡萄牙語（巴西）",
 
   "toast.language.title": "語言",
   "toast.language.description": "已切換到 {{language}}",
@@ -416,6 +429,7 @@ export const dict = {
   "common.learnMore": "深入了解",
   "common.rename": "重新命名",
   "common.reset": "重設",
+  "common.archive": "封存",
   "common.delete": "刪除",
   "common.close": "關閉",
   "common.edit": "編輯",
@@ -533,6 +547,11 @@ export const dict = {
   "settings.permissions.tool.external_directory.description": "存取專案目錄之外的檔案",
   "settings.permissions.tool.doom_loop.title": "Doom Loop",
   "settings.permissions.tool.doom_loop.description": "偵測具有相同輸入的重複工具呼叫",
+
+  "session.delete.failed.title": "刪除工作階段失敗",
+  "session.delete.title": "刪除工作階段",
+  "session.delete.confirm": '刪除工作階段 "{{name}}"?',
+  "session.delete.button": "刪除工作階段",
 
   "workspace.new": "新增工作區",
   "workspace.type.local": "本地",

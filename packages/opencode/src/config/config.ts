@@ -706,6 +706,7 @@ export namespace Config {
       input_clear: z.string().optional().default("ctrl+c").describe("Clear input field"),
       input_paste: z.string().optional().default("ctrl+v").describe("Paste from clipboard"),
       input_voice: z.string().optional().default("<leader>v").describe("Toggle voice input"),
+      wake_word_toggle: z.string().optional().default("<leader>w").describe("Toggle wake word detection"),
       input_submit: z.string().optional().default("return").describe("Submit input"),
       input_newline: z
         .string()
@@ -813,10 +814,7 @@ export namespace Config {
       .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
     voice: z
       .object({
-        command: z
-          .array(z.string())
-          .optional()
-          .describe("Recorder command template with {output} placeholder"),
+        command: z.array(z.string()).optional().describe("Recorder command template with {output} placeholder"),
         mime: z.string().optional().describe("Recorded audio mime type"),
       })
       .optional()
@@ -845,6 +843,11 @@ export namespace Config {
         })
         .optional()
         .describe("Audio language model transcription settings"),
+      wakewordEnabled: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe("Enable wake word detection for voice input (default: false)"),
     })
     .describe("Voice transcription settings")
 

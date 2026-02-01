@@ -425,6 +425,7 @@ export function UserMessageDisplay(props: { message: UserMessage; parts: PartTyp
               <IconButton
                 icon={copied() ? "check" : "copy"}
                 variant="secondary"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={(event) => {
                   event.stopPropagation()
                   handleCopy()
@@ -604,7 +605,12 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
 
   const input = () => part.state?.input ?? emptyInput
   // @ts-expect-error
-  const metadata = () => part.state?.metadata ?? emptyMetadata
+  const partMetadata = () => part.state?.metadata ?? emptyMetadata
+  const metadata = () => {
+    const perm = permission()
+    if (perm?.metadata) return { ...perm.metadata, ...partMetadata() }
+    return partMetadata()
+  }
 
   const render = ToolRegistry.render(part.tool) ?? GenericTool
 
@@ -701,6 +707,7 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
               <IconButton
                 icon={copied() ? "check" : "copy"}
                 variant="secondary"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={handleCopy}
                 aria-label={copied() ? i18n.t("ui.message.copied") : i18n.t("ui.message.copy")}
               />

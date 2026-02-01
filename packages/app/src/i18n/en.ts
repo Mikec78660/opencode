@@ -28,6 +28,8 @@ export const dict = {
   "command.session.previous": "Previous session",
   "command.session.next": "Next session",
   "command.session.archive": "Archive session",
+  "command.session.toggle.wakeword": "Toggle wake word",
+  "command.session.toggle.wakeword.description": "Enable or disable wake word detection",
 
   "command.palette": "Command palette",
 
@@ -88,6 +90,8 @@ export const dict = {
   "dialog.provider.group.other": "Other",
   "dialog.provider.tag.recommended": "Recommended",
   "dialog.provider.anthropic.note": "Connect with Claude Pro/Max or API key",
+  "dialog.provider.openai.note": "Connect with ChatGPT Pro/Plus or API key",
+  "dialog.provider.copilot.note": "Connect with Copilot or API key",
 
   "dialog.model.select.title": "Select model",
   "dialog.model.search.placeholder": "Search models",
@@ -221,6 +225,9 @@ export const dict = {
   "dialog.mcp.description": "{{enabled}} of {{total}} enabled",
   "dialog.mcp.empty": "No MCPs configured",
 
+  "dialog.lsp.empty": "LSPs auto-detected from file types",
+  "dialog.plugins.empty": "Plugins configured in opencode.json",
+
   "mcp.status.connected": "connected",
   "mcp.status.failed": "failed",
   "mcp.status.needs_auth": "needs auth",
@@ -240,7 +247,7 @@ export const dict = {
   "dialog.server.add.placeholder": "http://localhost:4096",
   "dialog.server.add.error": "Could not connect to server",
   "dialog.server.add.checking": "Checking...",
-  "dialog.server.add.button": "Add",
+  "dialog.server.add.button": "Add server",
   "dialog.server.default.title": "Default server",
   "dialog.server.default.description":
     "Connect to this server on app launch instead of starting a local server. Requires restart.",
@@ -248,6 +255,13 @@ export const dict = {
   "dialog.server.default.set": "Set current server as default",
   "dialog.server.default.clear": "Clear",
   "dialog.server.action.remove": "Remove server",
+
+  "dialog.server.menu.edit": "Edit",
+  "dialog.server.menu.default": "Set as default",
+  "dialog.server.menu.defaultRemove": "Remove default",
+  "dialog.server.menu.delete": "Delete",
+  "dialog.server.current": "Current Server",
+  "dialog.server.status.default": "Default",
 
   "dialog.project.edit.title": "Edit project",
   "dialog.project.edit.name": "Name",
@@ -257,6 +271,9 @@ export const dict = {
   "dialog.project.edit.icon.recommended": "Recommended: 128x128px",
   "dialog.project.edit.color": "Color",
   "dialog.project.edit.color.select": "Select {{color}} color",
+  "dialog.project.edit.worktree.startup": "Workspace startup script",
+  "dialog.project.edit.worktree.startup.description": "Runs after creating a new workspace (worktree).",
+  "dialog.project.edit.worktree.startup.placeholder": "e.g. bun install",
 
   "context.breakdown.title": "Context Breakdown",
   "context.breakdown.note": 'Approximate breakdown of input tokens. "Other" includes tool definitions and overhead.',
@@ -305,6 +322,7 @@ export const dict = {
   "language.pl": "Polish",
   "language.ar": "Arabic",
   "language.no": "Norwegian",
+  "language.br": "Portuguese (Brazil)",
 
   "toast.language.title": "Language",
   "toast.language.description": "Switched to {{language}}",
@@ -447,6 +465,7 @@ export const dict = {
   "common.learnMore": "Learn more",
   "common.rename": "Rename",
   "common.reset": "Reset",
+  "common.archive": "Archive",
   "common.delete": "Delete",
   "common.close": "Close",
   "common.edit": "Edit",
@@ -487,6 +506,7 @@ export const dict = {
   "font.option.hack": "Hack",
   "font.option.inconsolata": "Inconsolata",
   "font.option.intelOneMono": "Intel One Mono",
+  "font.option.iosevka": "Iosevka",
   "font.option.jetbrainsMono": "JetBrains Mono",
   "font.option.mesloLgs": "Meslo LGS",
   "font.option.robotoMono": "Roboto Mono",
@@ -623,6 +643,11 @@ export const dict = {
   "settings.permissions.tool.external_directory.description": "Access files outside the project directory",
   "settings.permissions.tool.doom_loop.title": "Doom Loop",
   "settings.permissions.tool.doom_loop.description": "Detect repeated tool calls with identical input",
+
+  "session.delete.failed.title": "Failed to delete session",
+  "session.delete.title": "Delete session",
+  "session.delete.confirm": 'Delete session "{{name}}"?',
+  "session.delete.button": "Delete session",
 
   "workspace.new": "New workspace",
   "workspace.type.local": "local",
