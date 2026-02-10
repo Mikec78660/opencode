@@ -574,7 +574,7 @@ export default function Page() {
         keybind: "mod+shift+v",
         onSelect: async () => {
           try {
-            const response = await sdk.client.voice.wakeWord.toggle({ directory: params.dir })
+            const response = await sdk.client.voice.toggle({ directory: params.dir }) as any
             const result = response.data
 
             if (result?.success) {
@@ -848,8 +848,8 @@ export default function Page() {
           }
           await sdk.client.session.summarize({
             sessionID: params.id!,
-            modelID: selectedModel.modelID,
-            providerID: selectedModel.providerID,
+            modelID: selectedModel.modelID!,
+            providerID: selectedModel.providerID!,
           })
         },
       },
