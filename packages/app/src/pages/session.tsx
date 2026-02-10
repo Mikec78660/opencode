@@ -557,8 +557,6 @@ export default function Page() {
   }
 
   command.register(() => {
-    console.log("Registering commands...")
-    console.log("Wake word command will be registered...")
     return [
       {
         id: "session.new",
@@ -575,9 +573,7 @@ export default function Page() {
         category: "Session",
         keybind: "mod+shift+v",
         onSelect: async () => {
-          console.log("Wake word command triggered")
           try {
-            console.log("Attempting to toggle wake word...")
             const response = await sdk.client.voice.wakeWord.toggle({ directory: params.dir })
             const result = response.data
 
@@ -787,7 +783,7 @@ export default function Page() {
           const sessionID = params.id
           if (!sessionID) return
           if (status()?.type !== "idle") {
-            await sdk.client.session.abort({ sessionID }).catch(() => {})
+            await sdk.client.session.abort({ sessionID }).catch(() => { })
           }
           const revert = info()?.revert?.messageID
           // Find the last user message that's not already reverted
@@ -842,38 +838,19 @@ export default function Page() {
         slash: "compact",
         disabled: !params.id || visibleUserMessages().length === 0,
         onSelect: async () => {
-          // Toggle wake word detection
-          try {
-            const response = await sdk.client.voice.wakeWord.toggle({ directory: params.dir })
-            const result = response.data
-
-            if (result?.success) {
-              showToast({
-                title: "Wake Word",
-                description: `Wake word detection ${result.status}`,
-              })
-            } else if (result?.message?.includes("not enabled in config")) {
-              showToast({
-                title: "Wake Word Not Enabled",
-                description:
-                  "Wake word detection must be enabled in settings first. Go to Settings → Voice → Enable Wake Word Detection.",
-              })
-                duration: 8000,
-              })
-            } else {
-              showToast({
-                title: "Error",
-                description: result?.message || "Failed to toggle wake word detection",
-              })
-            }
-          } catch (error) {
-            console.error("Wake word toggle error:", error)
+          const selectedModel = local.model.current()
+          if (!selectedModel) {
             showToast({
               title: "Error",
-              description: "Failed to toggle wake word detection",
+              description: "Connect a provider to summarize this session",
             })
+            return
           }
-          }
+          await sdk.client.session.summarize({
+            sessionID: params.id!,
+            modelID: selectedModel.modelID,
+            providerID: selectedModel.providerID,
+          })
         },
       },
       {
@@ -887,69 +864,69 @@ export default function Page() {
       },
       ...(sync.data.config.share !== "disabled"
         ? [
-            {
-              id: "session.share",
-              title: "Share session",
-              description: "Share this session and copy the URL to clipboard",
-              category: "Session",
-              slash: "share",
-              disabled: !params.id || !!info()?.share?.url,
-              onSelect: async () => {
-                if (!params.id) return
-                await sdk.client.session
-                  .share({ sessionID: params.id })
-                  .then((res) => {
-                    navigator.clipboard.writeText(res.data!.share!.url).catch(() =>
-                      showToast({
-                        title: "Failed to copy URL to clipboard",
-                        variant: "error",
-                      }),
-                    )
-                  })
-                  .then(() =>
+          {
+            id: "session.share",
+            title: "Share session",
+            description: "Share this session and copy the URL to clipboard",
+            category: "Session",
+            slash: "share",
+            disabled: !params.id || !!info()?.share?.url,
+            onSelect: async () => {
+              if (!params.id) return
+              await sdk.client.session
+                .share({ sessionID: params.id })
+                .then((res) => {
+                  navigator.clipboard.writeText(res.data!.share!.url).catch(() =>
                     showToast({
-                      title: "Session shared",
-                      description: "Share URL copied to clipboard!",
-                      variant: "success",
-                    }),
-                  )
-                  .catch(() =>
-                    showToast({
-                      title: "Failed to share session",
-                      description: "An error occurred while sharing the session",
+                      title: "Failed to copy URL to clipboard",
                       variant: "error",
                     }),
                   )
-              },
+                })
+                .then(() =>
+                  showToast({
+                    title: "Session shared",
+                    description: "Share URL copied to clipboard!",
+                    variant: "success",
+                  }),
+                )
+                .catch(() =>
+                  showToast({
+                    title: "Failed to share session",
+                    description: "An error occurred while sharing the session",
+                    variant: "error",
+                  }),
+                )
             },
-            {
-              id: "session.unshare",
-              title: "Unshare session",
-              description: "Stop sharing this session",
-              category: "Session",
-              slash: "unshare",
-              disabled: !params.id || !info()?.share?.url,
-              onSelect: async () => {
-                if (!params.id) return
-                await sdk.client.session
-                  .unshare({ sessionID: params.id })
-                  .then(() =>
-                    showToast({
-                      title: "Session unshared",
-                      description: "Session unshared successfully!",
-                      variant: "success",
-                    }),
-                  )
-                  .catch(() =>
-                    showToast({
-                      title: "Failed to unshare session",
-                      description: "An error occurred while unsharing the session",
-                      variant: "error",
-                    }),
-                  )
-              },
+          },
+          {
+            id: "session.unshare",
+            title: "Unshare session",
+            description: "Stop sharing this session",
+            category: "Session",
+            slash: "unshare",
+            disabled: !params.id || !info()?.share?.url,
+            onSelect: async () => {
+              if (!params.id) return
+              await sdk.client.session
+                .unshare({ sessionID: params.id })
+                .then(() =>
+                  showToast({
+                    title: "Session unshared",
+                    description: "Session unshared successfully!",
+                    variant: "success",
+                  }),
+                )
+                .catch(() =>
+                  showToast({
+                    title: "Failed to unshare session",
+                    description: "An error occurred while unsharing the session",
+                    variant: "error",
+                  }),
+                )
             },
-          ]
+          },
+        ]
         : []),
     ]
   })

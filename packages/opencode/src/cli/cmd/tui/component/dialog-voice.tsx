@@ -25,14 +25,16 @@ export function DialogVoice() {
   const [, setRef] = createSignal<DialogSelectRef<unknown>>()
   const [loading, setLoading] = createSignal<string | null>(null)
 
+  const isEnabled = () => sync.data.config?.voice?.wakewordEnabled || false
+
   const options = createMemo(() => [
     {
       value: "wake",
-      title: "Wake Word Detection",
-      description: "Enable wake word detection for voice input",
-      footer: (
-        <VoiceStatus enabled={sync.data.config?.voice?.wakewordEnabled || false} loading={loading() === "wake"} />
-      ),
+      title: isEnabled() ? "Disable wake word" : "Enable wake word",
+      description: isEnabled()
+        ? "Disable wake word detection for voice input"
+        : "Enable wake word detection for voice input",
+      footer: <VoiceStatus enabled={isEnabled()} loading={loading() === "wake"} />,
       category: undefined,
     },
   ])

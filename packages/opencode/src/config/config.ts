@@ -706,7 +706,7 @@ export namespace Config {
       input_clear: z.string().optional().default("ctrl+c").describe("Clear input field"),
       input_paste: z.string().optional().default("ctrl+v").describe("Paste from clipboard"),
       input_voice: z.string().optional().default("<leader>v").describe("Toggle voice input"),
-      wake_word_toggle: z.string().optional().default("<leader>w").describe("Toggle wake word detection"),
+      wake_word_toggle: z.string().optional().default("ctrl+shift+v").describe("Toggle wake word detection"),
       input_submit: z.string().optional().default("return").describe("Submit input"),
       input_newline: z
         .string()
@@ -846,8 +846,8 @@ export namespace Config {
       wakewordEnabled: z
         .boolean()
         .optional()
-        .default(false)
-        .describe("Enable wake word detection for voice input (default: false)"),
+        .default(true)
+        .describe("Enable wake word detection for voice input (default: true)"),
     })
     .describe("Voice transcription settings")
 
@@ -1301,7 +1301,7 @@ export namespace Config {
   }
 
   export async function update(config: Info) {
-    const filepath = path.join(Instance.directory, "config.json")
+    const filepath = path.join(Instance.directory, "opencode.json")
     const existing = await loadFile(filepath)
     await Bun.write(filepath, JSON.stringify(mergeDeep(existing, config), null, 2))
     await Instance.dispose()

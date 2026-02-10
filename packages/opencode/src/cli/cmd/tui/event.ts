@@ -45,4 +45,10 @@ export const TuiEvent = {
       sessionID: z.string().regex(/^ses/).describe("Session ID to navigate to"),
     }),
   ),
+  WakeWordDetected: BusEvent.define(
+    "tui.wakeword.detected",
+    z.object({
+      timestamp: z.number().describe("Timestamp when wake word was detected"),
+    }),
+  ),
 }
