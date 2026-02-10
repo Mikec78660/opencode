@@ -1,8 +1,5 @@
-import { tmpdir } from "os"
-import path from "path"
 import { WakeWordEngine } from "@/wake-word/engine"
-import { randomUUID } from "crypto"
-import { Config } from "@/config/config"
+import { GlobalBus } from "@/bus/global"
 
 export interface WakeWordDetectionConfig {
   microphone?: string
@@ -11,12 +8,12 @@ export interface WakeWordDetectionConfig {
 const pickCommand = (captureDevice?: string) => {
   if (captureDevice) {
     const deviceArgs = captureDevice.split(":")
-    return ["ffmpeg", "-f", deviceArgs[0], "-i", deviceArgs[1], "-ac", "1", "-ar", "16000", "-f", "s16le", "{output}"]
+    return ["ffmpeg", "-f", deviceArgs[0], "-i", deviceArgs[1], "-ac", "1", "-ar", "16000", "-f", "s16le", "-"]
   }
 
   const defaultCommands = [
-    ["ffmpeg", "-f", "pulse", "-i", "default", "-ac", "1", "-ar", "16000", "-f", "s16le", "{output}"],
-    ["ffmpeg", "-f", "alsa", "-i", "default", "-ac", "1", "-ar", "16000", "-f", "s16le", "{output}"],
+    ["ffmpeg", "-f", "pulse", "-i", "default", "-ac", "1", "-ar", "16000", "-f", "s16le", "-"],
+    ["ffmpeg", "-f", "alsa", "-i", "default", "-ac", "1", "-ar", "16000", "-f", "s16le", "-"],
   ]
 
   for (const candidate of defaultCommands) {
@@ -29,82 +26,128 @@ const pickCommand = (captureDevice?: string) => {
 }
 
 export namespace WakeWord {
-  export interface DetectionOptions {
-    transcriptionCallback?: () => void | Promise<void>
-  }
-
-  export function create(options?: DetectionOptions) {
+  export function create() {
     const state = {
       proc: undefined as ReturnType<typeof Bun.spawn> | undefined,
-      output: undefined as string | undefined,
       isActive: false,
+      audioBuffer: Buffer.alloc(0),
     }
 
-    const start = async (): Promise<boolean> => {
+    const CHUNK_SIZE = 2560
+
+    const start = async (options: { microphone?: string } = {}): Promise<boolean> => {
       if (state.isActive) return false
 
-      const config = await Config.get()
-      const voiceConfig = config.voice
-      if (!voiceConfig?.wakewordEnabled) {
-        console.log("[INFO] Wake word detection not enabled in config")
-        return false
-      }
-
-      const configObj: WakeWordDetectionConfig = {}
-      const modelPath = path.join(process.env.HOME!, ".opencode/wakeword_models")
-      const command = pickCommand(configObj.microphone)
+      const command = pickCommand(options.microphone)
 
       if (!command) return false
 
-      state.output = path.join(tmpdir(), `opencode-wakeword-${randomUUID()}.pcm`)
-      const args = command.map((entry) => entry.replaceAll("{output}", state.output!))
+      // Add -y just in case, similar to voice utility
+      if (!command.includes("-y")) {
+        command.splice(1, 0, "-y")
+      }
 
-      state.proc = Bun.spawn(args, {
+      state.proc = Bun.spawn(command, {
         stdout: "pipe",
         stderr: "pipe",
       })
 
       const engine = new WakeWordEngine({
-        modelPath,
+        modelPath: "",
       })
 
-      console.log("[INFO] Wake word detection started")
+      const modelLoaded = await engine.loadModel()
+      if (!modelLoaded) {
+        console.error("[ERROR] Failed to load wake word model")
+        state.proc?.kill()
+        state.proc = undefined
+        return false
+      }
 
       state.isActive = true
+      console.log("[INFO] Wake word detection started")
+
+      if (!state.proc.stdout || typeof state.proc.stdout === "number") {
+        state.isActive = false
+        console.error("[ERROR] Failed to open stdout for wake word process")
+        return false
+      }
+
+      const reader = state.proc.stdout.getReader()
+
+      let lastDetectionTime = 0
+
+      const processStream = async () => {
+        try {
+          while (state.isActive) {
+            const { done, value } = await reader.read()
+            if (done) {
+              if (state.isActive) {
+                state.isActive = false
+              }
+              break
+            }
+
+            state.audioBuffer = Buffer.concat([state.audioBuffer, Buffer.from(value)])
+
+            while (state.audioBuffer.length >= CHUNK_SIZE) {
+              const chunk = state.audioBuffer.subarray(0, CHUNK_SIZE)
+              state.audioBuffer = state.audioBuffer.subarray(CHUNK_SIZE)
+
+              try {
+                const detected = await engine.detect(chunk)
+
+                if (detected) {
+                  const now = Date.now()
+                  if (now - lastDetectionTime < 1000) {
+                    continue
+                  }
+                  lastDetectionTime = now
+
+                  state.audioBuffer = Buffer.alloc(0)
+
+                  GlobalBus.emit("event", {
+                    directory: process.cwd(),
+                    payload: {
+                      type: "tui.wakeword.detected",
+                      properties: {
+                        timestamp: now,
+                      },
+                    },
+                  })
+                }
+              } catch (error) {
+                // Silently handle detection errors in TUI
+              }
+            }
+          }
+        } catch (error) {
+          // Silently handle stream errors in TUI
+        } finally {
+          reader.releaseLock()
+        }
+      }
+
+      processStream().catch(() => {
+        // Silently handle failures in background stream processing
+      })
 
       return true
     }
 
     const stop = async () => {
-      if (!state.proc || !state.output) return
+      if (!state.proc) return
 
       const target = state.proc
       state.proc = undefined
-      const pathResult = state.output
-      state.output = undefined
-
-      const callback = options?.transcriptionCallback
 
       try {
         target.kill()
-        await target.exited.catch(() => {})
-      } catch {}
-
-      await Bun.file(pathResult)
-        .delete()
-        .catch(() => {})
+        await target.exited.catch(() => { })
+      } catch { }
 
       state.isActive = false
-
-      if (callback) {
-        try {
-          await callback()
-        } catch (error) {
-          console.log("[ERROR] Detection callback failed:", error)
-        }
-      }
-
-      console.log("[INFO] Wake word detection stopped")
+      state.audioBuffer = Buffer.alloc(0)
     }
 
     return {

@@ -2,7 +2,19 @@ import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentu
 import { Clipboard } from "@tui/util/clipboard"
 import { TextAttributes } from "@opentui/core"
 import { RouteProvider, useRoute } from "@tui/context/route"
-import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on } from "solid-js"
+import {
+  Switch,
+  Match,
+  createEffect,
+  untrack,
+  ErrorBoundary,
+  createSignal,
+  createMemo,
+  onMount,
+  batch,
+  Show,
+  on,
+} from "solid-js"
 import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
@@ -37,6 +49,7 @@ import { ArgsProvider, useArgs, type Args } from "./context/args"
 import open from "open"
 import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
+import { iife } from "@/util/iife"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -207,10 +220,8 @@ function App() {
     renderer.clearSelection()
   }
   const [terminalTitleEnabled, setTerminalTitleEnabled] = createSignal(kv.get("terminal_title_enabled", true))
+  let wakeWordInitialized = false
 
-  createEffect(() => {
-    console.log(JSON.stringify(route.data))
-  })
 
   // Update terminal window title based on current route and session
   createEffect(() => {
@@ -280,6 +291,32 @@ function App() {
       },
     ),
   )
+
+  createEffect(() => {
+    const enabled = sync.status === "complete" && !!sync.data.config?.voice?.wakewordEnabled
+    const status = sync.status
+
+    iife(async () => {
+      if (status !== "complete") return
+
+      try {
+        let instance = (globalThis as any).wakeWordInstance
+        if (!instance) {
+          const wakeWordModule = await import("@/cli/cmd/tui/wake-word")
+          instance = wakeWordModule.WakeWord.create()
+            ; (globalThis as any).wakeWordInstance = instance
+        }
+
+        if (enabled) {
+          await instance.start()
+        } else {
+          await instance.stop()
+        }
+      } catch (error) {
+        // Silently handle startup failures for wake word
+      }
+    })
+  })
 
   const connected = useConnected()
   command.register(() => [
@@ -492,10 +529,46 @@ function App() {
       category: "System",
     },
     {
+      title: sync.data.config?.voice?.wakewordEnabled ? "Disable wake word" : "Enable wake word",
+      value: "voice.wake_word_toggle",
+      keybind: "wake_word_toggle",
+      category: "Session",
+      suggested: true,
+      onSelect: async (d) => {
+        try {
+          const wasEnabled = !!sync.data.config?.voice?.wakewordEnabled
+          const response = await sdk.client.voice.wakeWord.toggle()
+          if (response.data?.success) {
+            sync.bootstrap()
+            toast.show({
+              variant: "info",
+              message: wasEnabled ? "Wake word disabled" : "Wake word enabled",
+              duration: 2000,
+            })
+          } else {
+            toast.show({
+              variant: "error",
+              message: response.data?.message || "Failed to toggle wake word",
+              duration: 3000,
+            })
+          }
+          d.clear()
+        } catch (error) {
+          console.error("Failed to toggle wake word:", error)
+          toast.show({
+            variant: "error",
+            message: "Failed to toggle wake word",
+            duration: 3000,
+          })
+          d.clear()
+        }
+      },
+    },
+    {
       title: "Open docs",
       value: "docs.open",
       onSelect: () => {
-        open("https://opencode.ai/docs").catch(() => {})
+        open("https://opencode.ai/docs").catch(() => { })
         dialog.clear()
       },
       category: "System",
@@ -504,7 +577,7 @@ function App() {
       title: "Open WebUI",
       value: "webui.open",
       onSelect: () => {
-        open(sdk.url).catch(() => {})
+        open(sdk.url).catch(() => { })
         dialog.clear()
       },
       category: "System",

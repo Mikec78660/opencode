@@ -52,19 +52,19 @@ export const VoiceRoutes = lazy(() =>
         const type = resolveType(voice)
         const result = await (type === "alm"
           ? Alm.transcribe({
-              file,
-              mime,
-              sessionID: data.sessionID,
-              prompt: data.prompt,
-              voice,
-            })
+            file,
+            mime,
+            sessionID: data.sessionID,
+            prompt: data.prompt,
+            voice,
+          })
           : Whisper.transcribe({
-              file,
-              mime,
-              sessionID: data.sessionID,
-              prompt: data.prompt,
-              voice,
-            }))
+            file,
+            mime,
+            sessionID: data.sessionID,
+            prompt: data.prompt,
+            voice,
+          }))
         return c.json(result)
       },
     )
@@ -94,37 +94,46 @@ export const VoiceRoutes = lazy(() =>
       async (c) => {
         try {
           const config = await Config.get()
-          if (!config.voice?.wakewordEnabled) {
-            return c.json({
-              success: false,
-              status: "failed",
-              message: "Wake word detection not enabled in config",
-            })
-          }
+          const currentEnabled = config.voice?.wakewordEnabled ?? false
+          const newEnabled = !currentEnabled
+          await Config.update({
+            voice: {
+              ...config.voice,
+              wakewordEnabled: newEnabled,
+            },
+          })
 
           const wakeWordModule = await import("@/cli/cmd/tui/wake-word")
           let wakeWordInstance = (globalThis as any).wakeWordInstance
 
           if (!wakeWordInstance) {
             wakeWordInstance = wakeWordModule.WakeWord.create()
-            ;(globalThis as any).wakeWordInstance = wakeWordInstance
+              ; (globalThis as any).wakeWordInstance = wakeWordInstance
           }
 
           const instance = await wakeWordInstance
-          const startResult = await instance.start()
 
-          if (startResult) {
-            return c.json({
-              success: true,
-              status: "started",
-              message: "Wake word detection started",
-            })
+          if (newEnabled) {
+            const startResult = await instance.start()
+            if (startResult) {
+              return c.json({
+                success: true,
+                status: "started",
+                message: "Wake word detection enabled and started",
+              })
+            } else {
+              return c.json({
+                success: true,
+                status: "started",
+                message: "Wake word detection enabled (but could not start - check config)",
+              })
+            }
           } else {
             await instance.stop()
             return c.json({
               success: true,
               status: "stopped",
-              message: "Wake word detection stopped",
+              message: "Wake word detection disabled and stopped",
             })
           }
         } catch (error) {

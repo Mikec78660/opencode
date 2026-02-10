@@ -21,6 +21,7 @@ import { useExit } from "../../context/exit"
 import { Clipboard } from "../../util/clipboard"
 import type { FilePart } from "@opencode-ai/sdk/v2"
 import { TuiEvent } from "../../event"
+import { GlobalBus } from "@/bus/global"
 import { iife } from "@/util/iife"
 import { Locale } from "@/util/locale"
 import { formatDuration } from "@/util/format"
@@ -103,6 +104,9 @@ export function Prompt(props: PromptProps) {
     },
     sessionID: () => props.sessionID,
     prompt: () => store.prompt.input,
+    onSilence: () => {
+      if (store.recording) toggleVoice()
+    },
   })
 
   const fileStyleId = syntax().getStyleId("extmark.file")!
@@ -118,6 +122,60 @@ export function Prompt(props: PromptProps) {
       renderer.requestRender()
     }, 0)
   })
+
+  const wakeWordHandler = async (evt: any) => {
+    if (evt.payload?.type !== "tui.wakeword.detected") return
+
+    console.log("[INFO] Wake word detection event received in Prompt")
+
+    if (store.recording || store.processing) {
+      console.log("[DEBUG] Ignoring wake word because already recording or processing")
+      return
+    }
+
+    const enabled = voice.isEnabled()
+    if (!enabled) {
+      return
+    }
+
+    // Release microphone for voice recording
+    const wakeWordInstance = (globalThis as any).wakeWordInstance
+    if (wakeWordInstance) {
+      await wakeWordInstance.stop()
+    }
+
+    setStore("recording", true)
+    toast.show({
+      message: "Wake word detected! Recording...",
+      variant: "info",
+      duration: 2000,
+    })
+
+    const ok = await voice.start().catch((error) => {
+      console.error("[ERROR] Failed to start voice recording:", error)
+      toast.error(error)
+      return false
+    })
+
+    if (!ok) {
+      setStore("recording", false)
+
+      // Resume wake word if recording failed
+      if (wakeWordInstance && sync.data.config.voice?.wakewordEnabled) {
+        await wakeWordInstance.start()
+      }
+
+      toast.show({
+        message: "Failed to start recording after wake word",
+        variant: "error",
+      })
+      return
+    }
+
+    console.log("[INFO] Voice recording started after wake word detection")
+  }
+
+  GlobalBus.on("event", wakeWordHandler)
 
   createEffect(() => {
     if (props.disabled) input.cursorColor = theme.backgroundElement
@@ -535,9 +593,9 @@ export function Prompt(props: PromptProps) {
     const sessionID = props.sessionID
       ? props.sessionID
       : await (async () => {
-          const sessionID = await sdk.client.session.create({}).then((x) => x.data!.id)
-          return sessionID
-        })()
+        const sessionID = await sdk.client.session.create({}).then((x) => x.data!.id)
+        return sessionID
+      })()
     const messageID = Identifier.ascending("message")
     let inputText = store.prompt.input
 
@@ -626,7 +684,7 @@ export function Prompt(props: PromptProps) {
             })),
           ],
         })
-        .catch(() => {})
+        .catch(() => { })
     }
     history.append({
       ...store.prompt,
@@ -708,6 +766,13 @@ export function Prompt(props: PromptProps) {
         return undefined
       })
       setStore("processing", false)
+
+      // Resume wake word after recording finishes
+      const wakeWordInstance = (globalThis as any).wakeWordInstance
+      if (wakeWordInstance && sync.data.config.voice?.wakewordEnabled) {
+        await wakeWordInstance.start()
+      }
+
       if (result?.cancelled) return
       if (!result) {
         toast.show({
@@ -740,14 +805,25 @@ export function Prompt(props: PromptProps) {
       return
     }
 
+    // Release microphone if manual recording started
+    const wakeWordInstance = (globalThis as any).wakeWordInstance
+    if (wakeWordInstance) {
+      await wakeWordInstance.stop()
+    }
+
     setStore("recording", true)
     toast.show({
       message: "Recording... press keybind again to stop",
       variant: "info",
       duration: 2000,
     })
-    const ok = await voice.start().catch((error) => {
+    const ok = await voice.start().catch(async (error) => {
       toast.error(error)
+      // Resume wake word on error
+      const wakeWordInstance = (globalThis as any).wakeWordInstance
+      if (wakeWordInstance && sync.data.config.voice?.wakewordEnabled) {
+        await wakeWordInstance.start()
+      }
       return false
     })
     if (ok) return
@@ -761,7 +837,9 @@ export function Prompt(props: PromptProps) {
   onCleanup(() => {
     if (store.processing) voice.cancel()
     if (!store.recording) return
-    voice.stop().catch(() => {})
+    voice.stop().catch(() => { })
+    // Cleanup GlobalBus subscription for wake word detection
+    GlobalBus.off("event", wakeWordHandler)
   })
 
   async function pasteImage(file: { filename?: string; content: string; mime: string }) {
@@ -821,9 +899,16 @@ export function Prompt(props: PromptProps) {
   })
 
   const voiceEnabled = createMemo(() => voice.isEnabled())
+  const wakeWordEnabled = createMemo(() => {
+    const configValue = sync.data.config?.voice?.wakewordEnabled
+    return configValue ?? true
+  })
+
   const voiceLabel = createMemo(() => {
+    const isEnabled = wakeWordEnabled()
     if (store.processing) return "Transcribing"
     if (store.recording) return "Stop"
+    if (isEnabled) return "🎤 Record"
     return "Record"
   })
   const voiceColor = createMemo(() => {
@@ -1016,7 +1101,7 @@ export function Prompt(props: PromptProps) {
                     // Handle SVG as raw text content, not as base64 image
                     if (file.type === "image/svg+xml") {
                       event.preventDefault()
-                      const content = await file.text().catch(() => {})
+                      const content = await file.text().catch(() => { })
                       if (content) {
                         pasteText(content, `[SVG: ${file.name ?? "image"}]`)
                         return
@@ -1027,7 +1112,7 @@ export function Prompt(props: PromptProps) {
                       const content = await file
                         .arrayBuffer()
                         .then((buffer) => Buffer.from(buffer).toString("base64"))
-                        .catch(() => {})
+                        .catch(() => { })
                       if (content) {
                         await pasteImage({
                           filename: file.name,
@@ -1037,7 +1122,7 @@ export function Prompt(props: PromptProps) {
                         return
                       }
                     }
-                  } catch {}
+                  } catch { }
                 }
 
                 const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
@@ -1118,13 +1203,13 @@ export function Prompt(props: PromptProps) {
             customBorderChars={
               theme.backgroundElement.a !== 0
                 ? {
-                    ...EmptyBorder,
-                    horizontal: "▀",
-                  }
+                  ...EmptyBorder,
+                  horizontal: "▀",
+                }
                 : {
-                    ...EmptyBorder,
-                    horizontal: " ",
-                  }
+                  ...EmptyBorder,
+                  horizontal: " ",
+                }
             }
           />
         </box>
