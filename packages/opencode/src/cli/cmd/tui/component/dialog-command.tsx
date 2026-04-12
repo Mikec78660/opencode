@@ -36,8 +36,8 @@ function init() {
   const keybind = useKeybind()
 
   const entries = createMemo(() => {
-    const all = registrations().flatMap((x) => x())
-    return all.map((x) => ({
+    const all = registrations().flatMap((x) => x() ?? [])
+    return all.filter((x) => !!x).map((x) => ({
       ...x,
       footer: x.keybind ? keybind.print(x.keybind) : undefined,
     }))

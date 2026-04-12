@@ -174,6 +174,14 @@ export const DEFAULT_THEMES: Record<string, ThemeJson> = {
   carbonfox,
 }
 
+export function hasTheme(name: string): boolean {
+  return DEFAULT_THEMES[name] !== undefined
+}
+
+export function upsertTheme(name: string, theme: ThemeJson): void {
+  DEFAULT_THEMES[name] = theme
+}
+
 function resolveTheme(theme: ThemeJson, mode: "dark" | "light") {
   const defs = theme.defs ?? {}
   function resolveColor(c: ColorValue): RGBA {
