@@ -163,5 +163,11 @@ The assistant did not use the todo list because this is a single command executi
    - Break complex tasks into smaller, manageable steps
    - Use clear, descriptive task names
 
+4. **Efficient Updates** (IMPORTANT):
+   - To update a single task status, use `ids` + `status` instead of passing the full list
+   - Example: `todowrite(ids=["task-2"], status="in_progress")` marks task-2 as in progress
+   - Example: `todowrite(ids=["task-1"], status="completed")` marks task-1 as complete
+   - Only use the `todos` parameter when creating a new list or making multiple changes at once
+
 When in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.
 

@@ -511,22 +511,25 @@ export namespace SessionPrompt {
       }
 
       // normal processing
-      const agent = await Agent.get(lastUser.agent)
-      const maxSteps = agent.steps ?? Infinity
-      const isLastStep = step >= maxSteps
-      msgs = await insertReminders({
-        messages: msgs,
-        agent,
-        session,
-      })
+       const agent = await Agent.get(lastUser.agent)
+       if (!agent) {
+         throw new Error(`Agent "${lastUser.agent}" not found`)
+       }
+       const maxSteps = agent.steps ?? Infinity
+       const isLastStep = step >= maxSteps
+       msgs = await insertReminders({
+         messages: msgs,
+         agent,
+         session,
+       })
 
-      const processor = SessionProcessor.create({
-        assistantMessage: (await Session.updateMessage({
-          id: Identifier.ascending("message"),
-          parentID: lastUser.id,
-          role: "assistant",
-          mode: agent.name,
-          agent: agent.name,
+       const processor = SessionProcessor.create({
+         assistantMessage: (await Session.updateMessage({
+           id: Identifier.ascending("message"),
+           parentID: lastUser.id,
+           role: "assistant",
+           mode: agent.name,
+           agent: agent.name,
           path: {
             cwd: Instance.directory,
             root: Instance.worktree,
@@ -829,8 +832,8 @@ export namespace SessionPrompt {
         created: Date.now(),
       },
       tools: input.tools,
-      agent: agent.name,
-      model: input.model ?? agent.model ?? (await lastModel(input.sessionID)),
+      agent: agent?.name ?? (input.agent ?? "unknown"),
+      model: input.model ?? agent?.model ?? (await lastModel(input.sessionID)),
       system: input.system,
       variant: input.variant,
     }
@@ -1348,24 +1351,26 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     using _ = defer(() => cancel(input.sessionID))
 
     const session = await Session.get(input.sessionID)
-    if (session.revert) {
-      SessionRevert.cleanup(session)
-    }
-    const agent = await Agent.get(input.agent)
-    const model = input.model ?? agent.model ?? (await lastModel(input.sessionID))
-    const userMsg: MessageV2.User = {
-      id: Identifier.ascending("message"),
-      sessionID: input.sessionID,
-      time: {
-        created: Date.now(),
-      },
-      role: "user",
-      agent: input.agent,
-      model: {
-        providerID: model.providerID,
-        modelID: model.modelID,
-      },
-    }
+     if (session.revert) {
+       SessionRevert.cleanup(session)
+     }
+     const agent = await Agent.get(input.agent)
+     const model = input.model ?? agent?.model ?? (await lastModel(input.sessionID))
+     const userMsg: MessageV2.User = {
+       id: Identifier.ascending("message"),
+       sessionID: input.sessionID,
+       time: {
+         created: Date.now(),
+       },
+       role: "user",
+       agent: input.agent,
+       model: model
+         ? {
+             providerID: model.providerID,
+             modelID: model.modelID,
+           }
+         : await lastModel(input.sessionID),
+     }
     await Session.updateMessage(userMsg)
     const userPart: MessageV2.Part = {
       type: "text",

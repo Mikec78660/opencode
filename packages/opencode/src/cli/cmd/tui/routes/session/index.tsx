@@ -1975,7 +1975,7 @@ function TodoWrite(props: ToolProps<typeof TodoWriteTool>) {
       <Match when={props.metadata.todos?.length}>
         <BlockTool title="# Todos" part={props.part}>
           <box>
-            <For each={props.input.todos ?? []}>
+            <For each={props.metadata.todos ?? []}>
               {(todo) => <TodoItem status={todo.status} content={todo.content} />}
             </For>
           </box>

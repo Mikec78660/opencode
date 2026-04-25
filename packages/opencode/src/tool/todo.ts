@@ -5,9 +5,22 @@ import { Todo } from "../session/todo"
 
 export const TodoWriteTool = Tool.define("todowrite", {
   description: DESCRIPTION_WRITE,
-  parameters: z.object({
-    todos: z.array(z.object(Todo.Info.shape)).describe("The updated todo list"),
-  }),
+  parameters: z
+    .object({
+      todos: z.array(z.object(Todo.Info.shape)).describe("Full updated todo list"),
+    })
+    .or(
+      z.object({
+        ids: z.array(z.string()).describe("Todo IDs to update"),
+        status: z
+          .enum(["pending", "in_progress", "completed", "cancelled"])
+          .describe("New status for specified todo IDs"),
+        priority: z
+          .enum(["high", "medium", "low"])
+          .optional()
+          .describe("Optional new priority"),
+      }),
+    ),
   async execute(params, ctx) {
     await ctx.ask({
       permission: "todowrite",
@@ -16,15 +29,26 @@ export const TodoWriteTool = Tool.define("todowrite", {
       metadata: {},
     })
 
-    await Todo.update({
-      sessionID: ctx.sessionID,
-      todos: params.todos,
-    })
+    let todos: Todo.Info[]
+    if ("ids" in params && params.ids && params.status) {
+      todos = await Todo.patch({
+        sessionID: ctx.sessionID,
+        ids: params.ids,
+        status: params.status,
+        priority: params.priority,
+      })
+    } else {
+      todos = (params as any).todos || []
+      await Todo.update({
+        sessionID: ctx.sessionID,
+        todos,
+      })
+    }
     return {
-      title: `${params.todos.filter((x) => x.status !== "completed").length} todos`,
-      output: JSON.stringify(params.todos, null, 2),
+      title: `${todos.filter((x) => x.status !== "completed").length} todos`,
+      output: JSON.stringify(todos, null, 2),
       metadata: {
-        todos: params.todos,
+        todos,
       },
     }
   },

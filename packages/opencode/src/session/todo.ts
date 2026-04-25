@@ -34,4 +34,26 @@ export namespace Todo {
       .then((x) => x || [])
       .catch(() => [])
   }
+
+  export async function patch(input: {
+    sessionID: string
+    ids: string[]
+    status: "pending" | "in_progress" | "completed" | "cancelled"
+    priority?: "high" | "medium" | "low"
+  }) {
+    const todos = await get(input.sessionID)
+    const updated = todos.map((todo) => {
+      if (input.ids.includes(todo.id)) {
+        return {
+          ...todo,
+          status: input.status,
+          ...(input.priority ? { priority: input.priority } : {}),
+        } as Info
+      }
+      return todo
+    })
+    await Storage.write(["todo", input.sessionID], updated)
+    Bus.publish(Event.Updated, { sessionID: input.sessionID, todos: updated })
+    return updated
+  }
 }

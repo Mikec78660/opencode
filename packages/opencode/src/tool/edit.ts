@@ -16,8 +16,21 @@ import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
 import { Snapshot } from "@/snapshot"
 import { assertExternalDirectory } from "./external-directory"
+import { hasFileHeader, generateFileHeader, getFileCommentStyle } from "@/agents/prompts/builder-shared"
+import { MessageV2 } from "@/session/message-v2"
+import { Provider } from "@/provider/provider"
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
+
+async function getLatestModel(sessionID: string): Promise<string> {
+  for await (const item of MessageV2.stream(sessionID)) {
+    if (item.info.role === "user" && item.info.modelID && item.info.providerID) {
+      return `${item.info.providerID}/${item.info.modelID}`
+    }
+  }
+  const defaultModel = await Provider.defaultModel()
+  return `${defaultModel.providerID}/${defaultModel.modelID}`
+}
 
 function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
@@ -47,33 +60,83 @@ export const EditTool = Tool.define("edit", {
     let contentOld = ""
     let contentNew = ""
     await FileTime.withLock(filePath, async () => {
-      if (params.oldString === "") {
-        contentNew = params.newString
-        diff = trimDiff(createTwoFilesPatch(filePath, filePath, contentOld, contentNew))
-        await ctx.ask({
-          permission: "edit",
-          patterns: [path.relative(Instance.worktree, filePath)],
-          always: ["*"],
-          metadata: {
-            filepath: filePath,
-            diff,
-          },
-        })
-        await Bun.write(filePath, params.newString)
-        await Bus.publish(File.Event.Edited, {
-          file: filePath,
-        })
-        FileTime.read(ctx.sessionID, filePath)
-        return
-      }
-
       const file = Bun.file(filePath)
       const stats = await file.stat().catch(() => {})
       if (!stats) throw new Error(`File ${filePath} not found`)
       if (stats.isDirectory()) throw new Error(`Path is a directory, not a file: ${filePath}`)
       await FileTime.assert(ctx.sessionID, filePath)
       contentOld = await file.text()
-      contentNew = replace(contentOld, params.oldString, params.newString, params.replaceAll)
+
+      // Check if file has a header and maintain/update it
+      const author = await getLatestModel(ctx.sessionID)
+      const hasHeader = hasFileHeader(contentOld, filePath)
+      const commentStyle = getFileCommentStyle(filePath)
+      let header = ""
+      let contentWithoutHeader = contentOld
+
+      if (hasHeader) {
+        // Extract header and content separately
+        const headerEndIndex = contentOld.indexOf(commentStyle.suffix) + commentStyle.suffix.length
+        if (commentStyle.prefix === "//" || commentStyle.prefix === "#") {
+          // For single-line comments, find the first non-comment line
+          const lines = contentOld.split("\n")
+          let headerLines = 0
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim()
+            if (line.startsWith(commentStyle.prefix) || line === "") {
+              headerLines++
+            } else {
+              break
+            }
+          }
+          header = lines.slice(0, headerLines).join("\n")
+          contentWithoutHeader = lines.slice(headerLines).join("\n")
+        } else {
+          // For multi-line comments
+          header = contentOld.substring(0, headerEndIndex)
+          contentWithoutHeader = contentOld.substring(headerEndIndex)
+          // Remove leading newline if present
+          if (contentWithoutHeader.startsWith("\n")) {
+            contentWithoutHeader = contentWithoutHeader.substring(1)
+          }
+        }
+      }
+
+      // Perform the edit on content (with or without header)
+      if (params.oldString === "") {
+        contentNew = params.newString
+      } else {
+        contentNew = replace(contentWithoutHeader, params.oldString, params.newString, params.replaceAll)
+      }
+
+      // If file had a header, update the Modified on field
+      if (hasHeader) {
+        const currentDate = new Date().toDateString()
+        if (commentStyle.prefix === "//" || commentStyle.prefix === "#") {
+          // For single-line comment styles
+          const headerLines = header.split("\n")
+          // Find the "Modified on:" line and update it
+          for (let i = 0; i < headerLines.length; i++) {
+            if (headerLines[i].includes("Modified on:")) {
+              headerLines[i] = `${commentStyle.prefix}${commentStyle.linePrefix} Modified on: ${currentDate}`
+              break
+            }
+          }
+          header = headerLines.join("\n")
+        } else {
+          // For multi-line comment styles (/* ... */)
+          const headerLines = header.split("\n")
+          // Find the "Modified on:" line and update it
+          for (let i = 0; i < headerLines.length; i++) {
+            if (headerLines[i].includes("Modified on:")) {
+              headerLines[i] = `${commentStyle.linePrefix} * Modified on: ${currentDate}`
+              break
+            }
+          }
+          header = headerLines.join("\n")
+        }
+        contentNew = header + (header.endsWith("\n") ? "" : "\n") + contentNew
+      }
 
       diff = trimDiff(
         createTwoFilesPatch(filePath, filePath, normalizeLineEndings(contentOld), normalizeLineEndings(contentNew)),

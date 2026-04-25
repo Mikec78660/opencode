@@ -11,9 +11,72 @@ import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
 import { trimDiff } from "./edit"
 import { assertExternalDirectory } from "./external-directory"
+import { FILE_HEADER_INSTRUCTION } from "@/agents/prompts/builder-shared"
+import { Session } from "../session"
+import { MessageV2 } from "../session/message-v2"
+import { Provider } from "../provider/provider"
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
 const MAX_PROJECT_DIAGNOSTICS_FILES = 5
+
+async function getLatestModel(sessionID: string): Promise<string> {
+   for await (const item of MessageV2.stream(sessionID)) {
+     if (item.info.role === "user" && item.info.modelID && item.info.providerID) {
+       return `${item.info.providerID}/${item.info.modelID}`
+     }
+   }
+   const defaultModel = await Provider.defaultModel()
+   return `${defaultModel.providerID}/${defaultModel.modelID}`
+ }
+
+ function getFileCommentStyle(filePath: string): { prefix: string; linePrefix: string; suffix: string; skipHeader?: boolean } {
+   const ext = path.extname(filePath).toLowerCase()
+
+   switch (ext) {
+     case ".html":
+       return { prefix: "<!--", linePrefix: " ", suffix: "-->" }
+     case ".css":
+       return { prefix: "/*", linePrefix: " ", suffix: "*/" }
+     case ".js":
+     case ".ts":
+     case ".jsx":
+     case ".tsx":
+       return { prefix: "//", linePrefix: " ", suffix: "" }
+     case ".py":
+       return { prefix: "#", linePrefix: " ", suffix: "" }
+     case ".json":
+       return { prefix: "", linePrefix: "", suffix: "", skipHeader: true }
+     default:
+       return { prefix: "/*", linePrefix: " ", suffix: "*/" }
+   }
+ }
+
+ function generateFileHeader(filename: string, author: string, filePath: string): string {
+   const commentStyle = getFileCommentStyle(filePath)
+
+   if (commentStyle.skipHeader) {
+     return ""
+   }
+
+   const currentDate = new Date().toDateString()
+   const descriptionLine = "[Descriptive explanation of what the code in the file does. List dependencies here.]"
+
+   if (commentStyle.prefix === "//" || commentStyle.prefix === "#") {
+     return `${commentStyle.prefix} ${filename}
+${commentStyle.prefix}${commentStyle.linePrefix} ${descriptionLine}
+${commentStyle.prefix}${commentStyle.linePrefix} 
+${commentStyle.prefix}${commentStyle.linePrefix} Created on: ${currentDate}
+${commentStyle.prefix}${commentStyle.linePrefix}     Author: ${author}`
+   } else {
+     return `${commentStyle.prefix} ${filename}
+${commentStyle.linePrefix} *
+${commentStyle.linePrefix} * ${descriptionLine}
+${commentStyle.linePrefix} *
+${commentStyle.linePrefix} * Created on: ${currentDate}
+${commentStyle.linePrefix} *     Author: ${author}
+${commentStyle.suffix}`
+   }
+ }
 
 export const WriteTool = Tool.define("write", {
   description: DESCRIPTION,
@@ -30,7 +93,11 @@ export const WriteTool = Tool.define("write", {
     const contentOld = exists ? await file.text() : ""
     if (exists) await FileTime.assert(ctx.sessionID, filepath)
 
-    const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, params.content))
+// For new files, prepend the file header
+     const header = generateFileHeader(path.basename(filepath), await getLatestModel(ctx.sessionID), filepath)
+     const contentToWrite = exists ? params.content : `${header}${header ? "\n\n" : ""}${params.content}`
+
+    const diff = trimDiff(createTwoFilesPatch(filepath, filepath, contentOld, contentToWrite))
     await ctx.ask({
       permission: "edit",
       patterns: [path.relative(Instance.worktree, filepath)],
@@ -41,7 +108,7 @@ export const WriteTool = Tool.define("write", {
       },
     })
 
-    await Bun.write(filepath, params.content)
+    await Bun.write(filepath, contentToWrite)
     await Bus.publish(File.Event.Edited, {
       file: filepath,
     })
